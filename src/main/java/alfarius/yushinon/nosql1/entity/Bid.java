@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 
 @Entity
@@ -35,4 +36,17 @@ public class Bid {
             inverseJoinColumns = @JoinColumn(name = "time_window_id")
     )
     private List<TimeWindow> timeWindows;
+
+    // хуета с фронта
+    @Transient
+    private Long serviceId;
+
+    @Transient
+    private Long timeWindowId;
+
+    @Transient
+    private LocalTime timeStart;
+
+    @Transient
+    private LocalTime timeEnd;
 }

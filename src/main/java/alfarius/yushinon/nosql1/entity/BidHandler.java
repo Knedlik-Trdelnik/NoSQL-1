@@ -10,21 +10,19 @@ import lombok.Setter;
 @Setter
 public class BidHandler {
 
-    @EmbeddedId
-    private BidHandlerId id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @MapsId("bidId")
     @JoinColumn(name = "bid_id")
     private Bid bid;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @MapsId("applicantId")
     @JoinColumn(name = "applicant_id")
     private User applicant;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @MapsId("inspectorId")
     @JoinColumn(name = "inspector_id")
     private User inspector;
 }

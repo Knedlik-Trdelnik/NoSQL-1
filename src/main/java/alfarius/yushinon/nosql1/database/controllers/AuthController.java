@@ -1,12 +1,9 @@
 package alfarius.yushinon.nosql1.database.controllers;
 
-import alfarius.yushinon.nosql1.database.services.AuthService;
 import alfarius.yushinon.nosql1.database.services.UserService;
 import alfarius.yushinon.nosql1.entity.User;
 import alfarius.yushinon.nosql1.utils.JWTUtil;
 import alfarius.yushinon.nosql1.utils.SHAGenerator;
-import com.sun.net.httpserver.HttpsServer;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

@@ -40,7 +40,8 @@ public class WebSecurityConfig {
                                 "/css/**",
                                 "/login",
                                 "/register",
-                                "/api/auth/**"
+                                "/api/auth/**",
+                                "/api/services/**"
                         ).permitAll()
                         .requestMatchers("/admin.html").permitAll() // <- -- -- Я В РОТ ЕБАЛ СВИНЕЙ
                         .requestMatchers("/admin.html", "/admin/**")

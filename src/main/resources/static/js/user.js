@@ -5,6 +5,8 @@
 const API_URL = '/api';
 const TOKEN_KEY = 'token';
 const LOGIN_URL = `${API_URL}/auth/login`;
+const SERVICES_URL = `${API_URL}/services`
+
 
 
 // ============================================
@@ -308,18 +310,19 @@ async function api(url, options = {}) {
 function getServices() {
     if (!getToken()) return;
 
-    api(`${API_URL}/services`)
+    // Путь должен соответствовать вашему @GetMapping в Spring Boot
+    api(`${SERVICES_URL}/classrooms`)
         .then(r => r.json())
-        .then(services => {
+        .then(classrooms => {
             const select = document.getElementById('user-service');
             if (!select) return;
 
-            select.innerHTML = '<option value="">Выберите услугу</option>' +
-                services.map(s => `<option value="${Number(s.id)}">${esc(s.name)} — ${esc(s.price)} ₽</option>`).join('');
+            select.innerHTML = '<option value="">Выберите аудиторию</option>' +
+                classrooms.map(c => `<option value="${Number(c.id)}">${esc(c.name)}</option>`).join('');
         })
         .catch(e => {
             const select = document.getElementById('user-service');
-            if (select) select.innerHTML = '<option value="">Услуги недоступны</option>';
+            if (select) select.innerHTML = '<option value="">Аудитории недоступны</option>';
             notify(e.message, true);
         });
 }
@@ -333,30 +336,30 @@ function loadAvailableSlots() {
     if (!getToken()) return;
 
     const serviceId = document.getElementById('user-service')?.value;
-    const day = document.getElementById('booking-day')?.value;
     const box = document.getElementById('available-slots');
 
     if (!box) return;
 
-    if (!serviceId || !day) {
-        box.innerHTML = '<p>Выберите аудиторию и дату, чтобы увидеть свободное время.</p>';
+    if (!serviceId) {
+        box.innerHTML = '<p>Выберите аудиторию, чтобы увидеть доступное время.</p>';
         return;
     }
 
-    box.innerHTML = '<p>Ищем свободные слоты…</p>';
+    box.innerHTML = '<p>Ищем доступные слоты…</p>';
 
-    api(`${API_URL}/services/${encodeURIComponent(serviceId)}/available-slots?date=${encodeURIComponent(day)}`)
+    // Убираем параметр date из запроса
+    api(`${API_URL}/services/${encodeURIComponent(serviceId)}/available-slots`)
         .then(r => r.json())
         .then(slots => {
             window.freeSlots = slots;
             if (!slots.length) {
-                box.innerHTML = '<p>На выбранную дату свободных слотов нет.</p>';
+                box.innerHTML = '<p>Для этой аудитории нет слотов.</p>';
                 return;
             }
 
             box.innerHTML = slots.map((slot, index) => {
-                const start = slotTime(slot.start || slot.startsAt);
-                const end = slotTime(slot.end || slot.endsAt);
+                const start = slotTime(slot.timeStart);
+                const end = slotTime(slot.timeEnd);
                 return `
                     <button class="slot-button" type="button" onclick="selectSlot(${index}, this)">
                         ${esc(start)} — ${esc(end)}
@@ -365,17 +368,25 @@ function loadAvailableSlots() {
             }).join('');
         })
         .catch(e => {
-            box.innerHTML = '<p>Свободные слоты недоступны. Время можно указать вручную ниже.</p>';
+            box.innerHTML = '<p>Слоты недоступны. Время можно указать вручную ниже.</p>';
             console.error(e);
         });
 }
+
+// Привязываем вызов только к изменению аудитории
+document.getElementById('user-service')?.addEventListener('change', loadAvailableSlots);
+// Слушатель на выбор дня (booking-day) можно полностью удалить, он больше не нужен для слотов
+
+// Глобальная переменная для отслеживания выбранного из списка слота
+window.selectedSlotId = null;
 
 function selectSlot(index, button) {
     const slot = window.freeSlots?.[index];
     if (!slot) return;
 
-    const start = slotTime(slot.start || slot.startsAt);
-    const end = slotTime(slot.end || slot.endsAt);
+    // Учитываем ваши имена полей (timeStart / timeEnd)
+    const start = slotTime(slot.timeStart || slot.start || slot.startsAt);
+    const end = slotTime(slot.timeEnd || slot.end || slot.endsAt);
 
     const startInput = document.getElementById('user-start-time');
     const endInput = document.getElementById('user-end-time');
@@ -383,10 +394,16 @@ function selectSlot(index, button) {
     if (startInput) startInput.value = start;
     if (endInput) endInput.value = end;
 
+    // Сохраняем ID выбранного слота из базы
+    window.selectedSlotId = slot.id;
+
     document.querySelectorAll('.slot-button').forEach(b => b.classList.remove('selected'));
     button.classList.add('selected');
 }
 
+// Если пользователь начал сам менять инпуты времени руками, сбрасываем привязку к готовому слоту
+document.getElementById('user-start-time')?.addEventListener('input', () => { window.selectedSlotId = null; });
+document.getElementById('user-end-time')?.addEventListener('input', () => { window.selectedSlotId = null; });
 
 // ============================================
 // BOOKINGS
@@ -401,13 +418,12 @@ function submitUserBooking(event) {
     }
 
     const serviceId = Number(document.getElementById('user-service')?.value);
-    const day = document.getElementById('booking-day')?.value;
     const startTime = document.getElementById('user-start-time')?.value;
     const endTime = document.getElementById('user-end-time')?.value;
     const comment = document.getElementById('user-comment')?.value.trim() || '';
 
-    if (!serviceId || !day || !startTime || !endTime) {
-        notify('Заполните аудиторию, дату и время', true);
+    if (!serviceId || !startTime || !endTime) {
+        notify('Заполните аудиторию и время', true);
         return;
     }
 
@@ -416,20 +432,33 @@ function submitUserBooking(event) {
         return;
     }
 
-    api(`${API_URL}/bookings`, {
+    // Формируем объект запроса в зависимости от способа выбора:
+    // Если window.selectedSlotId существует — пользователь выбрал готовый слот.
+    // Иначе — ввёл время вручную.
+    const requestBody = {
+        serviceId,
+        comment
+    };
+
+    if (window.selectedSlotId) {
+        requestBody.timeWindowId = window.selectedSlotId; // Передаем ID выбранного слота
+    } else {
+        requestBody.timeStart = startTime; // Или кастомное время, если бэкенд принимает строки
+        requestBody.timeEnd = endTime;
+    }
+
+    console.log('Отправляемые данные заявки:', requestBody);
+
+    api(`${SERVICES_URL}/bookings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            serviceId,
-            startsAt: `${day}T${startTime}`,
-            endsAt: `${day}T${endTime}`,
-            comment
-        })
+        body: JSON.stringify(requestBody)
     })
-        .then(() => {
+        .then((r) => {
             event.target.reset();
+            window.selectedSlotId = null; // Сбрасываем выбранный слот
             const slotsBox = document.getElementById('available-slots');
-            if (slotsBox) slotsBox.innerHTML = '<p>Выберите аудиторию и дату, чтобы увидеть свободное время.</p>';
+            if (slotsBox) slotsBox.innerHTML = '<p>Выберите аудиторию, чтобы увидеть доступное время.</p>';
             notify('Заявка отправлена администратору!');
             fetchMyBookings();
         })
