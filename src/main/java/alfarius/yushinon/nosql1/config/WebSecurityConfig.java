@@ -45,11 +45,13 @@ public class WebSecurityConfig {
                                 "/api/services/classrooms",
                                 "/api/services/bookings/my"
                         ).permitAll()
+                        .requestMatchers("/api/logout").authenticated()
                         .requestMatchers("/admin.html").permitAll() // <- -- -- Я В РОТ ЕБАЛ СВИНЕЙ
                         .requestMatchers("/admin.html", "/admin/**", "/api/services/bookings/**")
                         .hasAuthority("ADMIN")
                         .anyRequest()
                         .authenticated()
+
 
                 )
                 .exceptionHandling(exception -> exception

@@ -43,22 +43,33 @@ function updateAuthUI() {
 }
 
 // Выход из системы
-function logout() {
-    localStorage.removeItem('jwt_token');
-    sessionStorage.removeItem('jwt_token');
-    updateAuthUI();
+async function logout() {
+    const token = getToken();
 
-    // Очищаем данные из таблицы
-    const tableBody = document.getElementById('bookings-table-body');
-    if (tableBody) {
-        tableBody.innerHTML = '<tr><td colspan="5" class="empty-cell">Пожалуйста, войдите в систему</td></tr>';
-    }
-    const bookingCount = document.getElementById('booking-count');
-    if (bookingCount) {
-        bookingCount.textContent = '—';
+    if (token) {
+        try {
+            await fetch('/api/auth/logout', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+        } catch (error) {
+            console.error('Ошибка при отправке запроса на выход:', error);
+        }
     }
 
-    showNotification('Вы успешно вышли из системы');
+    removeToken();
+    showAuthScreen();
+
+    const passwordInput = document.getElementById('auth-password');
+    if (passwordInput) passwordInput.value = '';
+
+    const loginInput = document.getElementById('auth-login');
+    if (loginInput) loginInput.value = '';
+
+    notify('Вы вышли из системы');
 }
 
 // Вход
@@ -75,11 +86,11 @@ function loginUser(event) {
         .then(r => r.json())
         .then(data => {
             const token = data.token || data;
-            localStorage.setItem('jwt_token', token);
+            localStorage.setItem('token', token);
 
             showNotification('Добро пожаловать в панель управления!');
-            updateAuthUI(); // Снимет блокировку экрана
-            fetchBookings(); // Подгрузит заявки
+            updateAuthUI();
+            fetchBookings();
         })
         .catch(err => showNotification(err.message, true));
 }
@@ -182,7 +193,7 @@ function updateStatus(id, newStatus) {
 }
 
 function getToken() {
-    return localStorage.getItem('jwt_token') || sessionStorage.getItem('jwt_token');
+    return localStorage.getItem('token') || sessionStorage.getItem('token');
 }
 
 function request(url, options = {}) {

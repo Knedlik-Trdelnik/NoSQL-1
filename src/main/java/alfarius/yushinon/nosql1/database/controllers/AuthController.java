@@ -4,6 +4,9 @@ import alfarius.yushinon.nosql1.database.services.UserService;
 import alfarius.yushinon.nosql1.entity.User;
 import alfarius.yushinon.nosql1.utils.JWTUtil;
 import alfarius.yushinon.nosql1.utils.SHAGenerator;
+import jakarta.servlet.http.HttpServletRequest;
+import org.redisson.api.RBucket;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -24,6 +28,12 @@ public class AuthController {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private RedissonClient redissonClient;
+
+    @Autowired
+    private JWTUtil jwtUtils;
 
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> login(@RequestBody User user) {
@@ -54,5 +64,21 @@ public class AuthController {
         } else {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(HttpServletRequest request) {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            long remainingExpiration = jwtUtils.getRemainingExpirationMillis(token);
+
+            if (remainingExpiration > 0) {
+                RBucket<String> blacklistBucket = redissonClient.getBucket("blacklist:" + token);
+                blacklistBucket.set("revoked", remainingExpiration, TimeUnit.MILLISECONDS);
+            }
+        }
+
+        return ResponseEntity.ok("Successfully logged out");
     }
 }

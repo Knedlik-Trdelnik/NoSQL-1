@@ -171,7 +171,23 @@ async function handleLogin(event) {
     }
 }
 
-function logoutUser() {
+async function logoutUser() {
+    const token = getToken(); // Функция, которая извлекает токен из localStorage / cookies
+
+    if (token) {
+        try {
+            await fetch('/api/auth/logout', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+        } catch (error) {
+            console.error('Ошибка при отправке запроса на выход:', error);
+        }
+    }
+
     removeToken();
     showAuthScreen();
 
