@@ -32,6 +32,7 @@ public class WebSecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/",
+                                "/madoka_opening.mp3",
                                 "/index.html",
                                 "/user.html",
                                 "/403.html",
