@@ -1,6 +1,6 @@
 // Точки подключения к Spring Boot REST API. Контракты исходной версии сохранены.
 const API_URL = '/api';
-document.addEventListener('DOMContentLoaded', () => { fetchServices(); fetchCart(); fetchBookings(); });
+document.addEventListener('DOMContentLoaded', () => { fetchBookings(); });
 function showNotification(text, isError=false){const msg=document.getElementById('status-message');msg.textContent=text;msg.className=`message ${isError?'error':'success'}`;clearTimeout(showNotification.timer);showNotification.timer=setTimeout(()=>msg.className='message hidden',4000)}
 function safeText(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function request(url,options){return fetch(url,options).then(r=>{if(r.status===429)throw new Error('Превышен лимит запросов. Попробуйте чуть позже.');if(!r.ok)throw new Error('Не удалось получить данные');return r})}
