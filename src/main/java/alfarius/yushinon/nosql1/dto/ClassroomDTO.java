@@ -6,19 +6,16 @@ import lombok.Data;
 import java.util.List;
 
 @Entity
-@Table(name = "Bids")
+@Table(name = "Classrom")
 @Data
-public class BidDTO {
+public class ClassroomDTO {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
-    @Column(name = "name")
+    @Column(name = "name",nullable = false)
     private String name;
 
-    @Column(name = "description")
-    private String description;
-
-    @ManyToOne
-    private ClassroomDTO classrooms;
+    @OneToMany
+    private List<BidDTO> bids;
 }
