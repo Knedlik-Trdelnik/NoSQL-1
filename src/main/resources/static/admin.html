@@ -10,11 +10,73 @@
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
+<body class="auth-locked">
 <div class="ambient ambient-one"></div>
 <div class="ambient ambient-two"></div>
 
-<header class="topbar">
+<!-- ЭКРАН АВТОРИЗАЦИИ / РЕГИСТРАЦИИ -->
+<div id="auth-screen" class="auth-screen">
+    <div class="auth-card">
+
+        <!-- ВХОД -->
+        <div id="login-form-container">
+            <p class="section-label">UNIRESERVE ACADEMY</p>
+            <h1>Вход в систему</h1>
+            <p class="auth-description">Войдите в панель администратора для обработки заявок.</p>
+
+            <form id="login-form" onsubmit="loginUser(event)">
+                <label>
+                    Логин / Email
+                    <input id="login-username" type="text" required placeholder="admin@univ.edu">
+                </label>
+                <label>
+                    Пароль
+                    <input id="login-password" type="password" required placeholder="••••••••">
+                </label>
+                <button type="submit" class="modal-submit">Войти →</button>
+            </form>
+
+            <div class="auth-switch">
+                Нет аккаунта?
+                <button type="button" class="auth-link" onclick="showRegisterForm()">Зарегистрироваться</button>
+            </div>
+        </div>
+
+        <!-- РЕГИСТРАЦИЯ -->
+        <div id="register-form-container" class="hidden">
+            <p class="section-label">UNIRESERVE ACADEMY</p>
+            <h1>Регистрация</h1>
+            <p class="auth-description">Создайте профиль для работы с системой.</p>
+
+            <form id="register-form" onsubmit="registerUser(event)">
+                <label>
+                    Логин / Email
+                    <input id="reg-username" type="text" required placeholder="admin@univ.edu">
+                </label>
+                <label>
+                    Пароль
+                    <input id="reg-password" type="password" required placeholder="Минимум 6 символов">
+                </label>
+                <label>
+                    Роль
+                    <select id="reg-role" style="background: rgba(10, 5, 28, .6); color: #fff; border: 1px solid rgba(255, 255, 255, .18); padding: 12px; border-radius: 9px; font-family: Manrope, sans-serif; outline: none;">
+                        <option value="ADMIN">Администратор</option>
+                        <option value="USER">Студент / преподаватель</option>
+                    </select>
+                </label>
+                <button type="submit" class="modal-submit">Создать аккаунт ✦</button>
+            </form>
+
+            <div class="auth-switch">
+                Уже есть аккаунт?
+                <button type="button" class="auth-link" onclick="showLoginForm()">Войти</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ОСНОВНОЙ ИНТЕРФЕЙС (скрыт до авторизации) -->
+<header class="topbar protected-page">
     <a class="brand" href="index.html">
         <span class="brand-mark">U</span><span>Uni<span>Reserve</span></span>
     </a>
@@ -27,13 +89,15 @@
     <div class="topbar-meta">
         <span class="live-dot"></span> Система активна <span class="divider"></span> Панель администратора
     </div>
-    <button class="login-mini" onclick="openAccess('login')">Войти</button>
-    <div class="admin-avatar">А</div>
+    <div style="display: flex; gap: 15px; align-items: center;">
+        <div class="admin-avatar">А</div>
+        <button class="login-mini" style="background: transparent; border: 1px solid rgba(255,255,255,0.2);" onclick="logout()">Выйти</button>
+    </div>
 </header>
 
 <div id="status-message" class="message hidden" role="status" aria-live="polite"></div>
 
-<main id="top" class="dashboard">
+<main id="top" class="dashboard protected-page">
     <section class="hero">
         <div>
             <p class="eyebrow">Мадока (Админка) · Мир Мадоки</p>
@@ -41,7 +105,6 @@
             <p class="hero-text">Панель администратора предназначена для обработки и контроля заявок клиентов в режиме реального времени.</p>
             <div class="hero-actions">
                 <button class="btn-hero" onclick="document.getElementById('requests').scrollIntoView({behavior:'smooth'})">Открыть очередь <span>✦</span></button>
-                <button class="btn-hero-ghost" onclick="openAccess('register')">Создать пользователя</button>
             </div>
         </div>
         <div class="hero-stats">
@@ -64,13 +127,14 @@
                     <thead>
                     <tr>
                         <th>ID заявки</th>
-                        <th>Услуга</th>
+                        <th>Услуга / Аудитория</th>
+                        <th>Время бронирования</th>
                         <th>Статус</th>
                         <th class="actions-cell">Действие</th>
                     </tr>
                     </thead>
                     <tbody id="bookings-table-body">
-                    <tr><td colspan="4" class="empty-cell">Загружаем заявки…</td></tr>
+                    <tr><td colspan="5" class="empty-cell">Загружаем заявки…</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -83,47 +147,16 @@
                 <p>Обрабатывайте заявки, следите за кэшем и управляйте доступом из единой рабочей зоны.</p>
             </div>
             <div class="admin-actions">
-                <button onclick="fetchBookings()">Открыть очередь заявок</button>
-                <button onclick="openAccess('register')">Зарегистрировать пользователя</button>
+                <button onclick="fetchBookings()">Обновить очередь заявок</button>
             </div>
         </section>
     </div>
 </main>
 
-<footer>
+<footer class="protected-page">
     <span>© 2026 Мир Мадоки</span>
     <span>Система бронирования университета</span>
 </footer>
-
-<div id="access-modal" class="access-modal hidden" role="dialog" aria-modal="true" aria-labelledby="access-title">
-    <div class="modal-card">
-        <button class="modal-close" onclick="closeAccess()" aria-label="Закрыть">×</button>
-        <div class="modal-decoration">✦</div>
-        <p class="section-label">UNIRESERVE ACADEMY</p>
-        <h2 id="access-title">Добро пожаловать!</h2>
-        <p id="access-lead">Войдите, чтобы продолжить работу с бронированиями.</p>
-
-        <form id="login-form" onsubmit="loginUser(event)">
-            <label>Логин / Email<input id="login-username" required placeholder="admin@univ.edu"></label>
-            <label>Пароль<input id="login-password" type="password" required placeholder="••••••••"></label>
-            <button class="modal-submit" type="submit">Войти в систему →</button>
-            <p class="modal-switch">Нет аккаунта? <button type="button" onclick="openAccess('register')">Зарегистрироваться</button></p>
-        </form>
-
-        <form id="register-form" class="hidden" onsubmit="registerUser(event)">
-            <label>Логин / Email<input id="reg-username" required placeholder="admin@univ.edu"></label>
-            <label>Пароль<input id="reg-password" type="password" required placeholder="Минимум 6 символов"></label>
-            <label>Роль
-                <select id="reg-role">
-                    <option value="ADMIN">Администратор</option>
-                    <option value="USER">Студент / преподаватель</option>
-                </select>
-            </label>
-            <button class="modal-submit" type="submit">Создать аккаунт ✦</button>
-            <p class="modal-switch">Уже есть аккаунт? <button type="button" onclick="openAccess('login')">Войти</button></p>
-        </form>
-    </div>
-</div>
 
 <script src="js/admin.js"></script>
 <!-- Live2D виджет Мадоки -->
@@ -132,24 +165,73 @@
     window.addEventListener('DOMContentLoaded', () => {
         if (window.L2Dwidget) {
             window.L2Dwidget.init({
-                "model": {
-                    "jsonPath": "https://cdn.jsdelivr.net/gh/evrstr/live2d-widget-models/live2d_evrstr/madoka/model.json"
-                },
-                "display": {
-                    "position": "right",
-                    "width": 460,
-                    "height": 560,
-                    "hOffset": -150,
-                    "vOffset": 0
-                },
-                "mobile": {
-                    "show": true,
-                    "scale": 0.3,
-                    "motion": true
-                }
+                "model": { "jsonPath": "https://cdn.jsdelivr.net/gh/evrstr/live2d-widget-models/live2d_evrstr/madoka/model.json" },
+                "display": { "position": "right", "width": 460, "height": 560, "hOffset": -150, "vOffset": 0 },
+                "mobile": { "show": true, "scale": 0.3, "motion": true }
             });
         }
     });
 </script>
+
+<style>
+    body.auth-locked {
+        overflow: hidden;
+    }
+    body.auth-locked .protected-page {
+        display: none !important;
+    }
+    .hidden {
+        display: none !important;
+    }
+    .auth-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 24px;
+        background: radial-gradient(circle at center, #180d38 0%, #0a0418 100%);
+        overflow-y: auto;
+    }
+    .auth-screen.hidden {
+        display: none !important;
+    }
+    .auth-card {
+        width: 100%;
+        max-width: 420px;
+        height: max-content !important;
+        flex: none !important;
+        padding: 32px 28px;
+        margin: auto;
+        border: 1px solid rgba(255, 255, 255, .15);
+        border-radius: 18px;
+        background: #150c31;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, .6), 0 0 30px rgba(255, 175, 216, .05);
+    }
+    .auth-card h1 { margin: 8px 0 8px; font: 600 24px Unbounded, sans-serif; color: #fff; }
+    .auth-description { margin: 0 0 22px; color: #d9cce6; font-size: 12px; line-height: 1.5; }
+    .auth-card form { display: grid; gap: 14px; }
+    .auth-card label { display: grid; gap: 6px; color: #f5eaf8; font-size: 11px; font-weight: 700; }
+    .auth-card input {
+        border: 1px solid rgba(255, 255, 255, .18); border-radius: 9px; background: rgba(10, 5, 28, .6);
+        padding: 12px; color: #fff; font: 12px Manrope, sans-serif; outline: none; transition: 0.2s ease;
+    }
+    .auth-card input:focus { border-color: #ffafd8; box-shadow: 0 0 0 2px rgba(255, 175, 216, .12); }
+    .auth-switch { margin-top: 20px; text-align: center; color: #cfc0da; font-size: 11px; }
+    .auth-link { border: 0; background: none; padding: 0; margin-left: 4px; color: #ffafd8; font: 700 11px Manrope, sans-serif; cursor: pointer; }
+    .auth-link:hover { color: #ffd1e9; text-decoration: underline; }
+    .modal-submit {
+        display: inline-flex; align-items: center; justify-content: center; width: 100%; padding: 12px 20px; margin-top: 8px;
+        border: none; border-radius: 10px; background: linear-gradient(135deg, #ff8dca 0%, #d866a6 100%);
+        color: #fff; font: 700 13px/1 'Manrope', sans-serif; cursor: pointer; box-shadow: 0 4px 15px rgba(255, 141, 202, 0.35); transition: 0.2s ease;
+    }
+    .modal-submit:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(255, 141, 202, 0.5); }
+    .btn-refresh {
+        background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px;
+        color: var(--ink); padding: 8px 12px; font-size: 12px; cursor: pointer; transition: 0.2s;
+    }
+    .btn-refresh:hover { background: rgba(255, 255, 255, 0.18); }
+</style>
 </body>
 </html>

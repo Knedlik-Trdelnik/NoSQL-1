@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -72,11 +73,16 @@ public class BookingService {
         bidHandlerRepository.save(handler);
     }
 
+    @Transactional(readOnly = true)
     public List<Bid> getBookingsForCurrentUser() {
         User currentUser = getCurrentUser();
         List<BidHandler> handlers = bidHandlerRepository.findByApplicant(currentUser);
         return handlers.stream()
                 .map(BidHandler::getBid)
                 .toList();
+    }
+    @Transactional(readOnly = true)
+    public List<Bid> getAllBookings() {
+        return bidRepository.findAll();
     }
 }

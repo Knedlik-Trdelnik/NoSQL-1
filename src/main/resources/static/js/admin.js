@@ -1,13 +1,111 @@
-// Точки подключения к Spring Boot REST API. Контракты исходной версии сохранены.
+// Точки подключения к Spring Boot REST API.
 const API_URL = '/api';
+const SERVICE_URL = '/api/services';
 
 document.addEventListener('DOMContentLoaded', () => {
+    updateAuthUI(); // Проверяем авторизацию при загрузке страницы
 
-    fetchBookings();
+    if (getToken()) {
+        fetchBookings(); // Грузим заявки только если пользователь авторизован
+    }
 });
+
+// Переключение форм на экране входа
+function showLoginForm() {
+    const loginContainer = document.getElementById('login-form-container');
+    const registerContainer = document.getElementById('register-form-container');
+    if (loginContainer) loginContainer.classList.remove('hidden');
+    if (registerContainer) registerContainer.classList.add('hidden');
+}
+
+function showRegisterForm() {
+    const loginContainer = document.getElementById('login-form-container');
+    const registerContainer = document.getElementById('register-form-container');
+    if (loginContainer) loginContainer.classList.add('hidden');
+    if (registerContainer) registerContainer.classList.remove('hidden');
+}
+
+// Управление состоянием экрана (авторизован / не авторизован)
+function updateAuthUI() {
+    const token = getToken();
+    const authScreen = document.getElementById('auth-screen');
+
+    if (token) {
+        // Убираем блокировку, прячем окно входа, показываем контент
+        document.body.classList.remove('auth-locked');
+        if (authScreen) authScreen.classList.add('hidden');
+    } else {
+        // Блокируем экран, показываем окно входа
+        document.body.classList.add('auth-locked');
+        if (authScreen) authScreen.classList.remove('hidden');
+        showLoginForm(); // По умолчанию показываем форму логина
+    }
+}
+
+// Выход из системы
+function logout() {
+    localStorage.removeItem('jwt_token');
+    sessionStorage.removeItem('jwt_token');
+    updateAuthUI();
+
+    // Очищаем данные из таблицы
+    const tableBody = document.getElementById('bookings-table-body');
+    if (tableBody) {
+        tableBody.innerHTML = '<tr><td colspan="5" class="empty-cell">Пожалуйста, войдите в систему</td></tr>';
+    }
+    const bookingCount = document.getElementById('booking-count');
+    if (bookingCount) {
+        bookingCount.textContent = '—';
+    }
+
+    showNotification('Вы успешно вышли из системы');
+}
+
+// Вход
+function loginUser(event) {
+    event.preventDefault();
+    const username = document.getElementById('login-username').value;
+    const password = document.getElementById('login-password').value;
+
+    request(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+    })
+        .then(r => r.json())
+        .then(data => {
+            const token = data.token || data;
+            localStorage.setItem('jwt_token', token);
+
+            showNotification('Добро пожаловать в панель управления!');
+            updateAuthUI(); // Снимет блокировку экрана
+            fetchBookings(); // Подгрузит заявки
+        })
+        .catch(err => showNotification(err.message, true));
+}
+
+// Регистрация
+function registerUser(event) {
+    event.preventDefault();
+    const username = document.getElementById('reg-username').value;
+    const password = document.getElementById('reg-password').value;
+    const role = document.getElementById('reg-role').value;
+
+    request(`${API_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, role })
+    })
+        .then(() => {
+            showNotification('Аккаунт создан! Теперь вы можете войти.');
+            showLoginForm(); // Перекидываем на форму входа
+        })
+        .catch(err => showNotification('Ошибка регистрации: ' + err.message, true));
+}
 
 function showNotification(text, isError = false) {
     const msg = document.getElementById('status-message');
+    if (!msg) return;
     msg.textContent = text;
     msg.className = `message ${isError ? 'error' : 'success'}`;
     clearTimeout(showNotification.timer);
@@ -24,93 +122,6 @@ function safeText(value) {
     }[c]));
 }
 
-function request(url, options) {
-    return fetch(url, options).then(r => {
-        if (r.status === 429) throw new Error('Превышен лимит запросов. Попробуйте чуть позже.');
-        if (!r.ok) throw new Error('Не удалось получить данные');
-        return r;
-    });
-}
-
-function fetchServices() {
-    request(`${API_URL}/services`)
-        .then(r => r.json())
-        .then(services => {
-            window.availableServices = services;
-            const list = document.getElementById('services-list');
-            document.getElementById('service-count').textContent = services.length;
-            list.innerHTML = services.length ? services.map(s => `
-                <li>
-                    <span class="service-name">${safeText(s.name)}<small>Доступно для бронирования</small></span>
-                    <span class="price">${safeText(s.price)} ₽</span>
-                    <button class="add-button" onclick="addToCart(${Number(s.id)})">Добавить</button>
-                </li>
-            `).join('') : '<li class="empty-state">Список услуг пока пуст</li>';
-        })
-        .catch(err => {
-            document.getElementById('services-list').innerHTML = '<li class="empty-state">Каталог временно недоступен</li>';
-            showNotification(err.message, true);
-        });
-}
-
-function addToCart(serviceId) {
-    request(`${API_URL}/cart/add?serviceId=${encodeURIComponent(serviceId)}`, { method: 'POST' })
-        .then(r => r.json())
-        .then(cart => {
-            renderCart(cart);
-            showNotification('Услуга добавлена во временную корзину');
-        })
-        .catch(err => showNotification(err.message, true));
-}
-
-function fetchCart() {
-    fetch(`${API_URL}/cart`)
-        .then(r => r.ok ? r.json() : null)
-        .then(renderCart)
-        .catch(() => renderCart(null));
-}
-
-function renderCart(cart) {
-    const box = document.getElementById('cart-content');
-    if (!cart?.items?.length) {
-        box.innerHTML = '<div class="cart-empty"><span>✦</span><p>В корзине пока нет<br>выбранных услуг</p></div>';
-        return;
-    }
-    box.innerHTML = `
-        <ul class="cart-items">
-            ${cart.items.map(i => `
-                <li>
-                    <span>${safeText(i.serviceName)}</span>
-                    <span>${safeText(i.price)} ₽</span>
-                </li>
-            `).join('')}
-        </ul>
-    `;
-}
-
-function clearCart() {
-    fetch(`${API_URL}/cart`, { method: 'DELETE' })
-        .then(() => {
-            renderCart(null);
-            showNotification('Временная корзина очищена');
-        })
-        .catch(() => showNotification('Не удалось очистить корзину', true));
-}
-
-function createBooking() {
-    request(`${API_URL}/bookings/create`, { method: 'POST' })
-        .then(r => r.json())
-        .then(() => {
-            showNotification('Заявка успешно создана');
-            fetchCart();
-            fetchBookings();
-        })
-        .catch(err => showNotification(
-            err.message === 'Не удалось получить данные' ? 'Корзина пуста или время её жизни истекло' : err.message,
-            true
-        ));
-}
-
 function statusClass(value) {
     const n = String(value).toLowerCase();
     return n.includes('approv') || n.includes('одобр') ? 'status-approved' :
@@ -118,27 +129,45 @@ function statusClass(value) {
 }
 
 function fetchBookings() {
-    request(`${API_URL}/bookings`)
+    request(`${SERVICE_URL}/bookings/all`)
         .then(r => r.json())
         .then(bookings => {
             document.getElementById('booking-count').textContent = bookings.length;
             const body = document.getElementById('bookings-table-body');
-            body.innerHTML = bookings.length ? bookings.map(b => `
-                <tr>
-                    <td>#${safeText(b.id)}</td>
-                    <td>${safeText(b.serviceName)}</td>
-                    <td><span class="status ${statusClass(b.status)}">${safeText(b.status)}</span></td>
-                    <td>
-                        <div class="action-group">
-                            <button class="action-button approve" onclick="updateStatus(${Number(b.id)}, 'APPROVED')">Одобрить</button>
-                            <button class="action-button reject" onclick="updateStatus(${Number(b.id)}, 'REJECTED')">Отклонить</button>
-                        </div>
-                    </td>
-                </tr>
-            `).join('') : '<tr><td colspan="4" class="empty-cell">Заявок пока нет</td></tr>';
+
+            body.innerHTML = bookings.length ? bookings.map(b => {
+                const classroomName = b.name;
+
+                let timeStr = '—';
+                if (b.timeWindows && b.timeWindows.length > 0) {
+                    const tw = b.timeWindows[0];
+                    const start = tw.timeStart || tw.startTime || '';
+                    const end = tw.timeEnd || tw.endTime || '';
+                    if (start || end) {
+                        timeStr = `${start} — ${end}`;
+                    }
+                } else if (b.startsAt) {
+                    timeStr = safeText(b.startsAt);
+                }
+
+                return `
+                    <tr>
+                        <td>#${safeText(b.id)}</td>
+                        <td>${safeText(classroomName)}</td>
+                        <td>${safeText(timeStr)}</td>
+                        <td><span class="status ${statusClass(b.status)}">${safeText(b.status)}</span></td>
+                        <td>
+                            <div class="action-group">
+                                <button class="action-button approve" onclick="updateStatus(${Number(b.id)}, 'APPROVED')">Одобрить</button>
+                                <button class="action-button reject" onclick="updateStatus(${Number(b.id)}, 'REJECTED')">Отклонить</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('') : '<tr><td colspan="5" class="empty-cell">Заявок пока нет</td></tr>';
         })
         .catch(err => {
-            document.getElementById('bookings-table-body').innerHTML = '<tr><td colspan="4" class="empty-cell">Очередь временно недоступна</td></tr>';
+            document.getElementById('bookings-table-body').innerHTML = '<tr><td colspan="5" class="empty-cell">Очередь временно недоступна</td></tr>';
             showNotification(err.message, true);
         });
 }
@@ -152,89 +181,21 @@ function updateStatus(id, newStatus) {
         .catch(err => showNotification(err.message, true));
 }
 
-function openAccess(mode) {
-    const modal = document.getElementById('access-modal');
-    const login = mode === 'login';
-    modal.classList.remove('hidden');
-    document.getElementById('login-form').classList.toggle('hidden', !login);
-    document.getElementById('register-form').classList.toggle('hidden', login);
-    document.getElementById('access-title').textContent = login ? 'С возвращением!' : 'Начнём сиять!';
-    document.getElementById('access-lead').textContent = login ? 'Войдите, чтобы продолжить работу с бронированиями.' : 'Создайте профиль для работы с системой бронирования.';
+function getToken() {
+    return localStorage.getItem('jwt_token') || sessionStorage.getItem('jwt_token');
 }
 
-function closeAccess() {
-    document.getElementById('access-modal').classList.add('hidden');
-}
+function request(url, options = {}) {
+    const token = getToken();
+    const headers = {
+        ...(options.headers || {}),
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
 
-function loginUser(event) {
-    event.preventDefault();
-    const username = document.getElementById('login-username').value;
-    const password = document.getElementById('login-password').value;
-
-    request(`${API_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-    })
-        .then(() => {
-            closeAccess();
-            showNotification('Добро пожаловать в UniReserve!');
-        })
-        .catch(() => showNotification('Вход пока ожидает подключения Spring Boot API', true));
-}
-
-function registerUser(event) {
-    event.preventDefault();
-    const username = document.getElementById('reg-username').value;
-    const password = document.getElementById('reg-password').value;
-    const role = document.getElementById('reg-role').value;
-
-    request(`${API_URL}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password, role })
-    })
-        .then(() => {
-            closeAccess();
-            showNotification('Аккаунт создан — добро пожаловать в академию!');
-        })
-        .catch(() => showNotification('Регистрация ожидает подключения Spring Boot API', true));
-}
-
-function openBookingForm() {
-    const select = document.getElementById('booking-service');
-    const services = window.availableServices || [];
-    select.innerHTML = '<option value="">Выберите услугу</option>' + services.map(s => `
-        <option value="${Number(s.id)}">${safeText(s.name)} — ${safeText(s.price)} ₽</option>
-    `).join('');
-    document.getElementById('booking-modal').classList.remove('hidden');
-}
-
-function closeBookingForm() {
-    document.getElementById('booking-modal').classList.add('hidden');
-}
-
-function submitBooking(event) {
-    event.preventDefault();
-    const serviceId = Number(document.getElementById('booking-service').value);
-    const startsAt = document.getElementById('booking-date').value;
-    const comment = document.getElementById('booking-comment').value.trim();
-
-    if (!serviceId) {
-        showNotification('Выберите услугу для заявки', true);
-        return;
-    }
-
-    request(`${API_URL}/bookings`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ serviceId, startsAt, comment })
-    })
-        .then(() => {
-            closeBookingForm();
-            event.target.reset();
-            showNotification('Заявка отправлена в очередь администратора!');
-            fetchBookings();
-        })
-        .catch(() => showNotification('Отправка ждёт подключения POST /api/bookings в Spring Boot', true));
+    return fetch(url, { ...options, headers }).then(r => {
+        if (r.status === 429) throw new Error('Превышен лимит запросов. Попробуйте чуть позже.');
+        if (r.status === 401 || r.status === 403) throw new Error('Недостаточно прав или сессия истекла');
+        if (!r.ok) throw new Error('Не удалось получить данные');
+        return r;
+    });
 }

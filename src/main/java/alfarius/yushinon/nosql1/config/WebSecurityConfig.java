@@ -46,8 +46,7 @@ public class WebSecurityConfig {
                                 "/api/services/bookings/my"
                         ).permitAll()
                         .requestMatchers("/admin.html").permitAll() // <- -- -- Я В РОТ ЕБАЛ СВИНЕЙ
-                        .requestMatchers("/admin.html", "/admin/**")
-
+                        .requestMatchers("/admin.html", "/admin/**", "/api/services/bookings/**")
                         .hasAuthority("ADMIN")
                         .anyRequest()
                         .authenticated()
