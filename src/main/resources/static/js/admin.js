@@ -184,10 +184,15 @@ function fetchBookings() {
 }
 
 function updateStatus(id, newStatus) {
-    request(`${API_URL}/bookings/${encodeURIComponent(id)}/status?status=${encodeURIComponent(newStatus)}`, { method: 'PUT' })
+    request(`${SERVICE_URL}/bookings/${encodeURIComponent(id)}/status?status=${encodeURIComponent(newStatus)}`, { method: 'PUT' })
         .then(() => {
             showNotification(`Статус заявки #${id} обновлён`);
             fetchBookings();
+
+            // Если на странице есть функция загрузки слотов — вызываем её
+            if (typeof loadAvailableSlots === 'function') {
+                loadAvailableSlots();
+            }
         })
         .catch(err => showNotification(err.message, true));
 }

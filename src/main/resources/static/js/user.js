@@ -448,34 +448,30 @@ function submitUserBooking(event) {
         return;
     }
 
-    // Формируем объект запроса в зависимости от способа выбора:
-    // Если window.selectedSlotId существует — пользователь выбрал готовый слот.
-    // Иначе — ввёл время вручную.
     const requestBody = {
         serviceId,
         comment
     };
 
     if (window.selectedSlotId) {
-        requestBody.timeWindowId = window.selectedSlotId; // Передаем ID выбранного слота
+        requestBody.timeWindowId = window.selectedSlotId;
     } else {
-        requestBody.timeStart = startTime; // Или кастомное время, если бэкенд принимает строки
+        requestBody.timeStart = startTime;
         requestBody.timeEnd = endTime;
     }
-
-    console.log('Отправляемые данные заявки:', requestBody);
 
     api(`${SERVICES_URL}/bookings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody)
     })
-        .then((r) => {
+        .then(() => {
             event.target.reset();
-            window.selectedSlotId = null; // Сбрасываем выбранный слот
-            const slotsBox = document.getElementById('available-slots');
-            if (slotsBox) slotsBox.innerHTML = '<p>Выберите аудиторию, чтобы увидеть доступное время.</p>';
+            window.selectedSlotId = null;
             notify('Заявка отправлена администратору!');
+
+            // ⚡ Перезапрашиваем слоты с бэка, чтобы обновленный список сразу отрисовался
+            loadAvailableSlots();
             fetchMyBookings();
         })
         .catch(e => notify(e.message, true));

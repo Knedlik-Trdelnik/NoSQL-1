@@ -20,12 +20,11 @@ public class AdminBookingController {
         return ResponseEntity.ok(bookingService.getAllBookings());
     }
 
-    // Обновить статус заявки
     @PutMapping("/bookings/{id}/status")
     public ResponseEntity<Void> updateBookingStatus(
             @PathVariable Long id,
             @RequestParam String status) {
-        bookingService.updateStatus(id, status);
+        bookingService.updateBookingStatus(id, status);
         return ResponseEntity.ok().build();
     }
 }
