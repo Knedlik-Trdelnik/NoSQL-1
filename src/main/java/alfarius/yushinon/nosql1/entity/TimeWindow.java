@@ -1,5 +1,6 @@
 package alfarius.yushinon.nosql1.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -24,6 +25,7 @@ public class TimeWindow {
     @Column(name = "time_duration")
     private Integer timeDuration;
 
+    @JsonIgnore
     @ManyToMany(mappedBy = "timeWindows")
     private List<Bid> bids;
 }

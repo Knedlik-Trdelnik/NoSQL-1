@@ -473,20 +473,37 @@ function statusClass(s) {
 function fetchMyBookings() {
     if (!getToken()) return;
 
-    api(`${API_URL}/bookings/my`)
+    api(`${SERVICES_URL}/bookings/my`, {
+        method: 'GET'
+    })
         .then(r => r.json())
         .then(rows => {
             const body = document.getElementById('my-bookings');
             if (!body) return;
 
-            body.innerHTML = rows.length ? rows.map(b => `
-                <tr>
-                    <td>#${esc(b.id)}</td>
-                    <td>${esc(b.serviceName)}</td>
-                    <td><span class="status ${statusClass(b.status)}">${esc(b.status)}</span></td>
-                    <td>${esc(b.startsAt || '—')}</td>
-                </tr>
-            `).join('') : `
+            body.innerHTML = rows.length ? rows.map(b => {
+                // Достаем название аудитории из объекта classroom
+                const classroomName = b.classroom ? b.classroom.name : 'Не указана';
+
+                // Достаем время из первого тайм-слота, если он есть
+                let timeStr = '—';
+                if (b.timeWindows && b.timeWindows.length > 0) {
+                    const tw = b.timeWindows[0];
+                    timeStr = `${tw.timeStart || ''} — ${tw.timeEnd || ''}`;
+                }
+
+                // Статус (если его нет в сущности, выводим заглушку)
+                const status = b.status || 'В обработке';
+
+                return `
+                    <tr>
+                        <td>#${esc(b.id)}</td>
+                        <td>${esc(classroomName)}</td>
+                        <td><span class="status ${statusClass(status)}">${esc(status)}</span></td>
+                        <td>${esc(timeStr)}</td>
+                    </tr>
+                `;
+            }).join('') : `
                 <tr><td colspan="4" class="empty-cell">У вас ещё нет заявок</td></tr>
             `;
         })
@@ -496,7 +513,6 @@ function fetchMyBookings() {
             notify(e.message, true);
         });
 }
-
 
 // ============================================
 // INITIALIZATION

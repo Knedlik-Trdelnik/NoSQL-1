@@ -1,12 +1,10 @@
 package alfarius.yushinon.nosql1.database.services;
 
-import alfarius.yushinon.nosql1.database.repositories.BidHandlerRepository;
-import alfarius.yushinon.nosql1.database.repositories.BidRepository;
-import alfarius.yushinon.nosql1.database.repositories.ClassroomRepository;
-import alfarius.yushinon.nosql1.database.repositories.TimeWindowRepository;
+import alfarius.yushinon.nosql1.database.repositories.*;
 import alfarius.yushinon.nosql1.entity.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -27,8 +25,25 @@ public class BookingService {
     @Autowired
     private BidHandlerRepository bidHandlerRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    private User getCurrentUser() {
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        String username;
+
+        if (principal instanceof UserDetails userDetails) {
+            username = userDetails.getUsername();
+        } else {
+            username = principal.toString();
+        }
+
+        return userRepository.findByUsername(username);
+    }
+
     public void createBooking(Bid inputBid) {
-        User currentUser = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        User currentUser = getCurrentUser();
+
         Classroom classroom = classroomRepository.findById(inputBid.getServiceId())
                 .orElseThrow(() -> new RuntimeException("Аудитория не найдена"));
         inputBid.setClassroom(classroom);
@@ -55,5 +70,13 @@ public class BookingService {
         handler.setApplicant(currentUser);
 
         bidHandlerRepository.save(handler);
+    }
+
+    public List<Bid> getBookingsForCurrentUser() {
+        User currentUser = getCurrentUser();
+        List<BidHandler> handlers = bidHandlerRepository.findByApplicant(currentUser);
+        return handlers.stream()
+                .map(BidHandler::getBid)
+                .toList();
     }
 }

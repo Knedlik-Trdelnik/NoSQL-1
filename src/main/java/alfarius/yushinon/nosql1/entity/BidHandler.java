@@ -23,6 +23,6 @@ public class BidHandler {
     private User applicant;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "inspector_id")
+    @JoinColumn(name = "inspector_id", nullable = true)
     private User inspector;
 }
