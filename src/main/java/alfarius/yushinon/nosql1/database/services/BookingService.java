@@ -53,6 +53,7 @@ public class BookingService {
 
         return userRepository.findByUsername(username);
     }
+
     @CacheEvict(value = {"all_bookings", "user_bookings", "available_slots"}, allEntries = true)
     public void createBooking(Bid inputBid) {
         Long serviceId = inputBid.getServiceId();
@@ -155,29 +156,35 @@ public class BookingService {
                 .orElseThrow(() -> new RuntimeException("Заявка не найдена"));
 
         String cartKey = "cart:bid:" + bookingId;
+        Long expireSeconds = redisTemplate.getExpire(cartKey);
 
-        if ("APPROVED".equalsIgnoreCase(newStatus)) {
-            redisTemplate.opsForValue().set("status:bid:" + bookingId, "APPROVED");
-            Long classroomId = bid.getServiceId();
-            if (classroomId == null && bid.getClassroom() != null) {
-                classroomId = bid.getClassroom().getId();
-            }
-            Long timeWindowId = bid.getTimeWindowId();
-            if (timeWindowId == null && bid.getTimeWindows() != null && !bid.getTimeWindows().isEmpty()) {
-                timeWindowId = bid.getTimeWindows().get(0).getId();
-            }
-            if (classroomId != null && timeWindowId != null) {
-                String bookedKey = "booked:classroom:" + classroomId + ":slot:" + timeWindowId;
-                redisTemplate.opsForValue().set(bookedKey, "TAKEN");
-            } else {
-                System.err.println("[Redis Lock Error] Не удалось определить classroomId или timeWindowId для bid #" + bookingId);
-            }
-
-            redisTemplate.delete(cartKey);
-
-        } else if ("REJECTED".equalsIgnoreCase(newStatus)) {
+        if (expireSeconds != null && expireSeconds == -2) {
             redisTemplate.opsForValue().set("status:bid:" + bookingId, "REJECTED");
             redisTemplate.delete(cartKey);
+        } else {
+            if ("APPROVED".equalsIgnoreCase(newStatus)) {
+                redisTemplate.opsForValue().set("status:bid:" + bookingId, "APPROVED");
+                Long classroomId = bid.getServiceId();
+                if (classroomId == null && bid.getClassroom() != null) {
+                    classroomId = bid.getClassroom().getId();
+                }
+                Long timeWindowId = bid.getTimeWindowId();
+                if (timeWindowId == null && bid.getTimeWindows() != null && !bid.getTimeWindows().isEmpty()) {
+                    timeWindowId = bid.getTimeWindows().get(0).getId();
+                }
+                if (classroomId != null && timeWindowId != null) {
+                    String bookedKey = "booked:classroom:" + classroomId + ":slot:" + timeWindowId;
+                    redisTemplate.opsForValue().set(bookedKey, "TAKEN");
+                } else {
+                    System.err.println("[Redis Lock Error] Не удалось определить classroomId или timeWindowId для bid #" + bookingId);
+                }
+
+                redisTemplate.delete(cartKey);
+
+            } else if ("REJECTED".equalsIgnoreCase(newStatus)) {
+                redisTemplate.opsForValue().set("status:bid:" + bookingId, "REJECTED");
+                redisTemplate.delete(cartKey);
+            }
         }
     }
 

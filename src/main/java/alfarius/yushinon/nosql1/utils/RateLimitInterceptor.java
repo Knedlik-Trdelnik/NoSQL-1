@@ -26,7 +26,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
             redisTemplate.expire(key, 1, TimeUnit.MINUTES);
         }
 
-        if (requests > 10) {
+        if (requests > 100000) {
             response.setStatus(429); // я же тебе блять русским языком сказал, что не больше 10 палок, видишь что блять случилось ? На тебя таможенники бесятся, не пускают тебя к нам больше
             response.getWriter().write("Неа, хватит с тебя на сегодня");
             return false;
