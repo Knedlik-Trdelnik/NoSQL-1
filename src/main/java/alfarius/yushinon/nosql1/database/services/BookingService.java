@@ -7,6 +7,7 @@ import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
@@ -36,6 +37,9 @@ public class BookingService {
 
     @Autowired
     private RedissonClient redissonClient; // <- тут начинается пиздец с кешами
+
+    @Autowired
+    private StringRedisTemplate redisTemplate;
 
     private User getCurrentUser() {
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -95,6 +99,9 @@ public class BookingService {
 
             bidHandlerRepository.save(handler);
 
+            String cartKey = "cart:bid:" + savedBid.getId();
+            redisTemplate.opsForValue().set(cartKey, "PENDING", 5, TimeUnit.MINUTES);
+
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Ошибка выполнения блокировки Redis", e);
@@ -113,22 +120,44 @@ public class BookingService {
     public List<Bid> getBookingsForCurrentUser() {
         User currentUser = getCurrentUser();
         List<BidHandler> handlers = bidHandlerRepository.findByApplicant(currentUser);
-        return handlers.stream()
-                .map(BidHandler::getBid)
-                .toList();
+        List<Bid> bids = handlers.stream().map(BidHandler::getBid).toList();
+        bids.forEach(bid -> bid.setStatus(getBidStatusFromRedis(bid.getId())));
+        return bids;
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "all_bookings", key = "'all'") // ONLY FOR MADOKA PERSON
+    @Cacheable(value = "all_bookings", key = "'all'") // ONLY FOR MADOKA PERSON (админка)
     public List<Bid> getAllBookings() {
-        return bidRepository.findAll();
+        List<Bid> bids = bidRepository.findAll();
+        bids.forEach(bid -> bid.setStatus(getBidStatusFromRedis(bid.getId())));
+        return bids;
     }
 
     @CacheEvict(value = {"all_bookings", "user_bookings"}, allEntries = true)
-    public void updateBookingStatus(Long bookingId, String newStatus) {
-        Bid bid = bidRepository.findById(bookingId)
-                .orElseThrow(() -> new RuntimeException("Заявка не найдена"));
-        //
-        bidRepository.save(bid);
+    @Transactional
+    public void updateStatus(Long bookingId, String action) {
+        String cartKey = "cart:bid:" + bookingId;
+
+        if ("APPROVED".equalsIgnoreCase(action)) {
+            redisTemplate.opsForValue().set("status:bid:" + bookingId, "APPROVED");
+            redisTemplate.delete(cartKey);
+        } else if ("REJECTED".equalsIgnoreCase(action)) {
+            redisTemplate.opsForValue().set("status:bid:" + bookingId, "REJECTED");
+            redisTemplate.delete(cartKey);
+        }
+    }
+
+    public String getBidStatusFromRedis(Long bookingId) {
+        String permanentStatus = redisTemplate.opsForValue().get("status:bid:" + bookingId);
+        if (permanentStatus != null) {
+            return permanentStatus;
+        }
+
+        Boolean isPendingInCart = redisTemplate.hasKey("cart:bid:" + bookingId);
+        if (Boolean.TRUE.equals(isPendingInCart)) {
+            return "В обработке (осталось < 5 мин)";
+        }
+
+        return "Истёк срок удержания (EXPIRED)";
     }
 }

@@ -25,7 +25,7 @@ public class AdminBookingController {
     public ResponseEntity<Void> updateBookingStatus(
             @PathVariable Long id,
             @RequestParam String status) {
-        //bookingService.updateStatus(id, status);
+        bookingService.updateStatus(id, status);
         return ResponseEntity.ok().build();
     }
 }

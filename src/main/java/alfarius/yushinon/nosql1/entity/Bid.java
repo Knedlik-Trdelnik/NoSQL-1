@@ -49,4 +49,8 @@ public class Bid {
 
     @Transient
     private LocalTime timeEnd;
+
+    @Transient
+    private String status;
+
 }

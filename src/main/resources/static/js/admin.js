@@ -145,7 +145,7 @@ function fetchBookings() {
         .then(bookings => {
             document.getElementById('booking-count').textContent = bookings.length;
             const body = document.getElementById('bookings-table-body');
-
+            console.log(bookings)
             body.innerHTML = bookings.length ? bookings.map(b => {
                 const classroomName = b.name;
 
