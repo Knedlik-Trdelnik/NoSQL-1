@@ -3,7 +3,12 @@ package alfarius.yushinon.nosql1.database.repositories;
 import alfarius.yushinon.nosql1.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface UserRepository extends JpaRepository<User, Integer> {
+import java.util.Optional;
 
-    User findByUsername(String username);
+public interface UserRepository extends JpaRepository<User, Long> {
+
+    Optional<User> findByLogin(String username);
+
+    boolean existsByLogin(String username);
+
 }

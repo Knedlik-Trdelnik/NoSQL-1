@@ -5,6 +5,8 @@ import lombok.Getter;
 import lombok.Setter;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.util.Set;
+
 @Entity
 @Table(name = "users")
 @Getter
@@ -20,7 +22,7 @@ public class User {
     @Column(name = "password", nullable = false)
     private String password;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "role_id", nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private Role role;
 }

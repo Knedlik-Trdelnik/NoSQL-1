@@ -10,3 +10,48 @@ public class NoSql1Application {
         SpringApplication.run(NoSql1Application.class, args);
     }
 }
+/*
+fetch("/login", {
+    method: "POST",
+    headers: {
+        "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+        login: "admin",
+        password: "1"
+    })
+})
+    .then(response => {
+        console.log("HTTP status:", response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log("Ответ сервера:", data);
+    })
+    .catch(error => {
+        console.error("Ошибка:", error);
+    });
+ */
+/*
+fetch("/register", {
+    method: "POST",
+    headers: {
+        "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+        login: "test",
+        password: "1",
+        role: "USER"
+    })
+})
+    .then(response => {
+        console.log("HTTP status:", response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log("Ответ сервера:", data);
+    })
+    .catch(error => {
+        console.error("Ошибка:", error);
+    });
+ */

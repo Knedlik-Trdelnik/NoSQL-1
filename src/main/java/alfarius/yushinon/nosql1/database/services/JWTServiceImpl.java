@@ -1,5 +1,6 @@
 package alfarius.yushinon.nosql1.database.services;
 
+import alfarius.yushinon.nosql1.database.services.intefaces.JWTService;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
@@ -14,7 +15,7 @@ import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
-public class JWTServiceImpl implements JWTService{
+public class JWTServiceImpl implements JWTService {
 
     private final Environment environment;
 

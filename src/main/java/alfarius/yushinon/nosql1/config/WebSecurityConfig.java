@@ -26,12 +26,16 @@ public class WebSecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
+                                "/",
+                                "/**/*.html",
+                                "/**/*.js",
+                                "/**/*.css",
                                 "/login",
                                 "/register",
                                 "/api/auth/**"
                         ).permitAll()
                         .requestMatchers("/admin/**")
-                        .hasRole("ADMIN")
+                        .hasAuthority("ADMIN")
                         .anyRequest()
                         .authenticated()
 
