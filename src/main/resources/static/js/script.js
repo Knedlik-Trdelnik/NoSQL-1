@@ -297,3 +297,58 @@ function selectSlot(time) {
 function showClientNotice() {
     showNotification('Выход из аккаунта клиента выполнен');
 }
+
+function parseJwt(token) {
+    try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+
+        return JSON.parse(jsonPayload);
+    } catch (e) {
+        return null;
+    }
+}
+document.addEventListener('DOMContentLoaded', () => {
+    const adminLinks = document.querySelectorAll('a[href="/admin.html"]');
+
+    adminLinks.forEach(link => {
+        link.addEventListener('click', (event) => {
+            event.preventDefault(); // Отменяем стандартный переход браузера
+
+            const token = localStorage.getItem('token'); // или TOKEN_KEY
+
+            if (!token) {
+                // Нет токена — отправляем на 403
+                window.location.href = '/403.html';
+                return;
+            }
+
+            const payload = parseJwt(token);
+
+            // Проверяем срок годности токена (exp в секундах)
+            if (!payload || (payload.exp && payload.exp * 1000 < Date.now())) {
+                localStorage.removeItem('token');
+                window.location.href = '/403.html';
+                return;
+            }
+
+            // Проверяем роль ADMIN (в зависимости от структуры вашего claims)
+            // Роль может лежать в payload.role, payload.roles или payload.authorities
+            const roles = payload.roles || payload.authorities || [payload.role];
+            const isAdmin = Array.isArray(roles)
+                ? roles.includes('ADMIN') || roles.includes('ROLE_ADMIN')
+                : roles === 'ADMIN' || roles === 'ROLE_ADMIN';
+
+            if (isAdmin) {
+                // Роль подтверждена — переходим в админку
+                window.location.href = '/admin.html';
+            } else {
+                // Если обычный USER — на страницу 403
+                window.location.href = '/403.html';
+            }
+        });
+    });
+});

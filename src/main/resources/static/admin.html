@@ -21,7 +21,7 @@
     <nav class="main-nav" aria-label="Основная навигация">
         <a href="index.html">Главная</a>
         <a href="user.html">Клиент</a>
-        <a href="#requests">Очередь заявок</a>
+        <a href="#requests" class="active">Очередь заявок</a>
         <a href="#admin">Админ-панель</a>
     </nav>
     <div class="topbar-meta">
@@ -38,7 +38,7 @@
         <div>
             <p class="eyebrow">ADMIN MODE · UNIRESERVE ACADEMY</p>
             <h1>Очередь заявок.<br><em>Решение за тобой!</em></h1>
-            <p class="hero-text">Панель администратора предназначена только для обработки и контроля заявок клиентов.</p>
+            <p class="hero-text">Панель администратора предназначена для обработки и контроля заявок клиентов в режиме реального времени.</p>
             <div class="hero-actions">
                 <button class="btn-hero" onclick="document.getElementById('requests').scrollIntoView({behavior:'smooth'})">Открыть очередь <span>✦</span></button>
                 <button class="btn-hero-ghost" onclick="openAccess('register')">Создать пользователя</button>
@@ -48,13 +48,6 @@
             <div><strong id="booking-count">—</strong><span>активных заявок</span></div>
         </div>
         <div class="hero-sparkles" aria-hidden="true">✦<span>★</span><i>✧</i></div>
-    </section>
-
-    <section class="workflow">
-        <span class="workflow-label">Путь заявки</span>
-        <span class="step active">01 <b>Выбор услуги</b></span><i></i>
-        <span class="step">02 <b>Временная корзина</b></span><i></i>
-        <span class="step">03 <b>Решение администратора</b></span>
     </section>
 
     <div class="layout">
@@ -87,11 +80,11 @@
             <div>
                 <p class="section-label">ADMIN ZONE</p>
                 <h2>Панель администратора</h2>
-                <p>Обрабатывайте заявки, следите за Redis-кэшем и управляйте доступом из единой рабочей зоны.</p>
+                <p>Обрабатывайте заявки, следите за кэшем и управляйте доступом из единой рабочей зоны.</p>
             </div>
             <div class="admin-actions">
-                <button onclick="fetchBookings()">Открыть очередь</button>
-                <button onclick="openAccess('register')">Новый пользователь</button>
+                <button onclick="fetchBookings()">Открыть очередь заявок</button>
+                <button onclick="openAccess('register')">Зарегистрировать пользователя</button>
             </div>
         </section>
     </div>
@@ -112,7 +105,7 @@
         <p id="access-lead">Войдите, чтобы продолжить работу с бронированиями.</p>
 
         <form id="login-form" onsubmit="loginUser(event)">
-            <label>Email или логин<input id="login-username" required placeholder="admin@univ.edu"></label>
+            <label>Логин / Email<input id="login-username" required placeholder="admin@univ.edu"></label>
             <label>Пароль<input id="login-password" type="password" required placeholder="••••••••"></label>
             <button class="modal-submit" type="submit">Войти в систему →</button>
             <p class="modal-switch">Нет аккаунта? <button type="button" onclick="openAccess('register')">Зарегистрироваться</button></p>
@@ -133,73 +126,29 @@
     </div>
 </div>
 
-<div id="booking-modal" class="access-modal hidden" role="dialog" aria-modal="true" aria-labelledby="booking-title">
-    <div class="modal-card booking-card">
-        <button class="modal-close" onclick="closeBookingForm()" aria-label="Закрыть">×</button>
-        <div class="modal-decoration">🏁</div>
-        <p class="section-label">NEW BOOKING · НА СТАРТЕ</p>
-        <h2 id="booking-title">Оставить заявку</h2>
-        <p>Заполните детали — заявка сразу попадёт в очередь администратора.</p>
-
-        <form id="booking-form" onsubmit="submitBooking(event)">
-            <label>Услуга
-                <select id="booking-service" required>
-                    <option value="">Сначала выберите услугу</option>
-                </select>
-            </label>
-            <label>Дата и время<input id="booking-date" type="datetime-local" required></label>
-            <label>Комментарий <span class="field-optional">необязательно</span>
-                <textarea id="booking-comment" rows="3" placeholder="Например: требуется проектор"></textarea>
-            </label>
-            <button class="modal-submit" type="submit">Отправить на обработку →</button>
-        </form>
-    </div>
-</div>
-
-<style>
-    .nav-create {
-        border: 0;
-        border-radius: 14px;
-        background: linear-gradient(100deg, #ffb4db, #a6dfff);
-        padding: 6px 10px;
-        color: #461b51;
-        font: 800 10px Manrope;
-        cursor: pointer;
-    }
-    .booking-card textarea {
-        resize: vertical;
-        border: 1px solid rgba(255, 255, 255, .19);
-        border-radius: 9px;
-        background: rgba(14, 7, 41, .3);
-        padding: 11px;
-        color: #fff;
-        font: 12px Manrope;
-    }
-    .field-optional {
-        font-weight: 400;
-        color: #d9cce3;
-    }
-</style>
-
 <script src="js/admin.js"></script>
-<!-- Мадока сохранена: это исходная интерактивная модель проекта. -->
+<!-- Live2D виджет Мадоки -->
 <script src="https://cdn.jsdelivr.net/npm/live2d-widget@3.1.4/lib/L2Dwidget.min.js"></script>
 <script>
-    L2Dwidget.init({
-        "model": {
-            "jsonPath": "https://cdn.jsdelivr.net/gh/evrstr/live2d-widget-models/live2d_evrstr/madoka/model.json"
-        },
-        "display": {
-            "position": "right",
-            "width": 460,
-            "height": 560,
-            "hOffset": -150,
-            "vOffset": 0
-        },
-        "mobile": {
-            "show": true,
-            "scale": 0.3,
-            "motion": true
+    window.addEventListener('DOMContentLoaded', () => {
+        if (window.L2Dwidget) {
+            window.L2Dwidget.init({
+                "model": {
+                    "jsonPath": "https://cdn.jsdelivr.net/gh/evrstr/live2d-widget-models/live2d_evrstr/madoka/model.json"
+                },
+                "display": {
+                    "position": "right",
+                    "width": 460,
+                    "height": 560,
+                    "hOffset": -150,
+                    "vOffset": 0
+                },
+                "mobile": {
+                    "show": true,
+                    "scale": 0.3,
+                    "motion": true
+                }
+            });
         }
     });
 </script>

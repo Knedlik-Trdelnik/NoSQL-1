@@ -3,26 +3,167 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>UniReserve — кабинет клиента</title>
-    <link rel="stylesheet" href="css/style.css">
+    <title>Мадока Rent — кабинет клиента</title>
+    <link rel="stylesheet" href="/css/style.css">
+
 </head>
-<body>
+<body class="auth-locked">
+
 <div class="ambient ambient-one"></div>
 <div class="ambient ambient-two"></div>
 
-<header class="topbar">
+<!-- ЭКРАН АВТОРИЗАЦИИ / РЕГИСТРАЦИИ -->
+<div id="auth-screen" class="auth-screen">
+    <div class="auth-card">
+
+        <!-- ВХОД -->
+        <div id="login-form-container">
+            <p class="section-label">Мадока Rent · AUTH</p>
+
+            <h1>Вход в кабинет</h1>
+
+            <p class="auth-description">
+                Войдите, чтобы создавать и просматривать свои заявки.
+            </p>
+
+            <form id="auth-form">
+                <label>
+                    Логин
+                    <input
+                            id="auth-login"
+                            type="text"
+                            autocomplete="username"
+                            required
+                            placeholder="Введите логин"
+                    >
+                </label>
+
+                <label>
+                    Пароль
+                    <input
+                            id="auth-password"
+                            type="password"
+                            autocomplete="current-password"
+                            required
+                            placeholder="Введите пароль"
+                    >
+                </label>
+
+                <button type="submit" class="modal-submit">
+                    Войти →
+                </button>
+
+                <p id="auth-error" class="auth-error"></p>
+            </form>
+
+            <div class="auth-switch">
+                Нет аккаунта?
+                <button
+                        type="button"
+                        class="auth-link"
+                        onclick="showRegisterForm()"
+                >
+                    Зарегистрироваться
+                </button>
+            </div>
+        </div>
+
+
+        <!-- РЕГИСТРАЦИЯ -->
+        <div id="register-form-container" class="hidden">
+            <p class="section-label">Мадока Rent · REGISTRATION</p>
+
+            <h1>Регистрация</h1>
+
+            <p class="auth-description">
+                Создайте аккаунт для работы с заявками.
+            </p>
+
+            <form id="register-form">
+
+                <label>
+                    Логин
+                    <input
+                            id="register-login"
+                            type="text"
+                            autocomplete="username"
+                            required
+                            placeholder="Придумайте логин"
+                    >
+                </label>
+
+                <label>
+                    Email
+                    <input
+                            id="register-email"
+                            type="email"
+                            autocomplete="email"
+                            required
+                            placeholder="example@mail.ru"
+                    >
+                </label>
+
+                <label>
+                    Пароль
+                    <input
+                            id="register-password"
+                            type="password"
+                            autocomplete="new-password"
+                            required
+                            placeholder="Придумайте пароль"
+                    >
+                </label>
+
+                <label>
+                    Повторите пароль
+                    <input
+                            id="register-password-repeat"
+                            type="password"
+                            autocomplete="new-password"
+                            required
+                            placeholder="Повторите пароль"
+                    >
+                </label>
+
+                <button
+                        type="submit"
+                        class="modal-submit"
+                >
+                    Создать аккаунт →
+                </button>
+
+                <p id="register-error" class="auth-error"></p>
+            </form>
+
+            <div class="auth-switch">
+                Уже есть аккаунт?
+                <button
+                        type="button"
+                        class="auth-link"
+                        onclick="showLoginForm()"
+                >
+                    Войти
+                </button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ОСНОВНОЙ ИНТЕРФЕЙС -->
+<header class="topbar protected-page">
     <a class="brand" href="index.html">
-        <span class="brand-mark">U</span><span>Uni<span>Reserve</span></span>
+        <span class="brand-mark">U</span><span>Мир<span>Мадоки</span></span>
     </a>
     <nav class="main-nav">
         <a href="index.html">Главная</a>
-        <a class="active-nav" href="user.html">Кабинет клиента</a>
-        <a href="admin.html">Администратор</a>
+        <a class="active-nav" href="/user.html">Кабинет клиента</a>
+        <a href="/admin.html" id="admin-link">Мадока (Админка)</a>
     </nav>
-    <button class="login-mini" onclick="showClientNotice()">Выйти</button>
+    <button class="login-mini" onclick="logoutUser()">Выйти</button>
 </header>
 
-<main class="dashboard">
+<main class="dashboard protected-page">
     <section class="hero">
         <div>
             <p class="eyebrow">CLIENT MODE · МОЙ КАБИНЕТ</p>
@@ -119,178 +260,190 @@
 
 <div id="status-message" class="message hidden" role="status"></div>
 
-<footer>
-    <span>© 2026 UniReserve Academy</span>
+<footer class="protected-page">
+    <span>© 2026 Мир Мадоки</span>
     <span>Кабинет клиента</span>
-    <span class="api-mark">REST API · Redis</span>
 </footer>
 
-<script src="js/user.js"></script>
+<script src="/js/user.js"></script>
 
 <style>
-    .user-layout {
-        display: grid;
-        grid-template-columns: 1.35fr .65fr;
-        gap: 18px;
-        margin-bottom: 18px;
+    body.auth-locked {
+        overflow: hidden;
     }
-    .user-form {
+
+    body.auth-locked .protected-page {
+        display: none !important;
+    }
+
+    /* Гарантируем работу скрипта переключения */
+    .hidden {
+        display: none !important;
+    }
+
+    /* Центрирующий экран-оверлей через Flex */
+    .auth-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+
+        padding: 24px;
+        background: radial-gradient(circle at center, #180d38 0%, #0a0418 100%);
+        overflow-y: auto;
+    }
+
+    .auth-screen.hidden {
+        display: none !important;
+    }
+
+    /* Компактная карточка, которая не тянется в высоту */
+    .auth-card {
+        width: 100%;
+        max-width: 420px;
+        /* height: max-content не дает внешним стилям растянуть блок на всю высоту экрана */
+        height: max-content !important;
+        flex: none !important;
+
+        padding: 32px 28px;
+        margin: auto;
+
+        border: 1px solid rgba(255, 255, 255, .15);
+        border-radius: 18px;
+
+        background: #150c31;
+
+        box-shadow:
+                0 20px 60px rgba(0, 0, 0, .6),
+                0 0 30px rgba(255, 175, 216, .05);
+    }
+
+    .auth-card h1 {
+        margin: 8px 0 8px;
+        font: 600 24px Unbounded, sans-serif;
+        color: #fff;
+    }
+
+    .auth-description {
+        margin: 0 0 22px;
+        color: #d9cce6;
+        font-size: 12px;
+        line-height: 1.5;
+    }
+
+    .auth-card form {
         display: grid;
         gap: 14px;
-        margin-top: 20px;
     }
-    .user-form label {
+
+    .auth-card label {
         display: grid;
-        gap: 7px;
+        gap: 6px;
+
         color: #f5eaf8;
         font-size: 11px;
         font-weight: 700;
     }
-    .user-form select,
-    .user-form input,
-    .user-form textarea {
-        border: 1px solid rgba(255, 255, 255, .2);
+
+    .auth-card input {
+        border: 1px solid rgba(255, 255, 255, .18);
         border-radius: 9px;
-        background: rgba(14, 7, 41, .3);
-        padding: 11px;
+
+        background: rgba(10, 5, 28, .6);
+
+        padding: 12px;
+
         color: #fff;
-        font: 12px Manrope;
+        font: 12px Manrope, sans-serif;
+
+        outline: none;
+        transition: border-color 0.2s ease;
     }
-    .user-form textarea {
-        resize: vertical;
+
+    .auth-card input:focus {
+        border-color: #ffafd8;
+        box-shadow: 0 0 0 2px rgba(255, 175, 216, .12);
     }
-    .slots-block {
-        border: 1px solid rgba(255, 221, 243, .23);
-        background: rgba(255, 255, 255, .05);
-        border-radius: 12px;
-        padding: 13px;
-    }
-    .slot-heading {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        color: #ffe1ef;
-        font-weight: 800;
+
+    .auth-error {
+        min-height: 16px;
+        margin: 4px 0 0;
+
+        color: #ff9dbf;
         font-size: 11px;
     }
-    .slot-heading button {
+
+    .auth-switch {
+        margin-top: 20px;
+        text-align: center;
+        color: #cfc0da;
+        font-size: 11px;
+    }
+
+    .auth-link {
         border: 0;
         background: none;
-        color: #aee7ff;
-        font: 800 10px Manrope;
-        cursor: pointer;
-    }
-    .available-slots {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 7px;
-        margin-top: 12px;
-        min-height: 28px;
-    }
-    .available-slots p {
-        width: 100%;
-        color: #d9cce6;
-        font-size: 11px;
-        margin: 2px 0;
-    }
-    .slot-button {
-        border: 1px solid rgba(160, 228, 255, .45);
-        border-radius: 8px;
-        background: rgba(107, 197, 255, .12);
-        color: #e9f9ff;
-        padding: 7px 9px;
-        font: 700 11px Manrope;
-        cursor: pointer;
-    }
-    .slot-button:hover,
-    .slot-button.selected {
-        background: #b6eaff;
-        color: #253052;
-        border-color: #b6eaff;
-    }
-    .time-choice {
-        border-left: 3px solid #ffafd8;
-        padding-left: 11px;
-    }
-    .time-choice p {
-        color: #ffe1ef;
-        font-size: 11px;
-        font-weight: 800;
-        margin: 0 0 8px;
-    }
-    .time-inputs {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
-    }
-    .client-tip {
-        background: linear-gradient(145deg, rgba(69, 99, 175, .78), rgba(113, 55, 139, .8));
-    }
-    .client-tip h2 {
-        font: 600 18px Unbounded, sans-serif;
-        margin: 0;
-    }
-    .client-tip ol {
-        list-style: none;
-        margin: 22px 0;
         padding: 0;
-        display: grid;
-        gap: 15px;
-        font-size: 12px;
+        margin-left: 4px;
+
+        color: #ffafd8;
+
+        font: 700 11px Manrope, sans-serif;
+        cursor: pointer;
     }
-    .client-tip li {
-        display: flex;
+
+    .auth-link:hover {
+        color: #ffd1e9;
+        text-decoration: underline;
+    }
+
+    /* Основная кнопка сабмита */
+    .modal-submit {
+        display: inline-flex;
         align-items: center;
-        gap: 10px;
+        justify-content: center;
+        width: 100%;
+        padding: 12px 20px;
+        margin-top: 8px;
+
+        border: none;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #ff8dca 0%, #d866a6 100%);
+
+        color: #fff;
+        font: 700 13px/1 'Manrope', sans-serif;
+        cursor: pointer;
+        box-shadow: 0 4px 15px rgba(255, 141, 202, 0.35);
+        transition: all 0.2s ease;
     }
-    .client-tip li span {
-        display: grid;
-        place-items: center;
-        width: 25px;
-        height: 25px;
-        border-radius: 50%;
-        background: #ffc0e2;
-        color: #54234f;
-        font-weight: 800;
-        font-size: 10px;
+
+    .modal-submit:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px rgba(255, 141, 202, 0.5);
     }
-    .client-tip > p:last-child {
-        color: #e7dcec;
-        font-size: 11px;
-        line-height: 1.55;
+
+    .modal-submit:active {
+        transform: translateY(0);
     }
-    .my-requests {
-        margin-top: 18px;
+
+    /* Кнопки обновить и слоты */
+    .btn-refresh, .slot-button {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 8px;
+        color: var(--ink);
+        padding: 8px 12px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: 0.2s;
     }
-    @media (max-width: 760px) {
-        .user-layout {
-            grid-template-columns: 1fr;
-        }
-        .main-nav {
-            display: none;
-        }
+
+    .btn-refresh:hover, .slot-button:hover {
+        background: rgba(255, 255, 255, 0.18);
     }
 </style>
-
-<script src="https://cdn.jsdelivr.net/npm/live2d-widget@3.1.4/lib/L2Dwidget.min.js"></script>
-<script>
-    L2Dwidget.init({
-        "model": {
-            "jsonPath": "https://cdn.jsdelivr.net/gh/evrstr/live2d-widget-models/live2d_evrstr/madoka/model.json"
-        },
-        "display": {
-            "position": "right",
-            "width": 460,
-            "height": 560,
-            "hOffset": -150,
-            "vOffset": 0
-        },
-        "mobile": {
-            "show": true,
-            "scale": 0.3,
-            "motion": true
-        }
-    });
-</script>
 </body>
 </html>
