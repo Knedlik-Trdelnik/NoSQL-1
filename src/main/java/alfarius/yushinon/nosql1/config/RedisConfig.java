@@ -1,49 +1,40 @@
 package alfarius.yushinon.nosql1.config;
 
-import alfarius.yushinon.nosql1.entity.redis.CartItem;
 import org.redisson.Redisson;
 import org.redisson.api.RedissonClient;
 import org.redisson.config.Config;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-
 import org.springframework.data.redis.core.RedisTemplate;
-
-
 import org.springframework.data.redis.serializer.*;
-
 import java.time.Duration;
 
 
 @Configuration
+@EnableCaching
 public class RedisConfig {
 
     @Bean
-    public RedisTemplate<String, CartItem> cartRedisTemplate(
-            RedisConnectionFactory connectionFactory
-    ) {
-        RedisTemplate<String, CartItem> template = new RedisTemplate<>();
-
+    @Primary
+    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
+        RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
+        GenericJacksonJsonRedisSerializer serializer = GenericJacksonJsonRedisSerializer.builder()
+                .enableUnsafeDefaultTyping()
+                .build();
 
-        StringRedisSerializer keySerializer =
-                new StringRedisSerializer();
-
-        JacksonJsonRedisSerializer<CartItem> valueSerializer =
-                new JacksonJsonRedisSerializer<>(CartItem.class);
-
-        template.setKeySerializer(keySerializer);
-        template.setValueSerializer(valueSerializer);
-
-        template.setHashKeySerializer(keySerializer);
-        template.setHashValueSerializer(valueSerializer);
+        template.setKeySerializer(new StringRedisSerializer());
+        template.setValueSerializer(serializer);
+        template.setHashKeySerializer(new StringRedisSerializer());
+        template.setHashValueSerializer(serializer);
 
         template.afterPropertiesSet();
-
         return template;
     }
 
@@ -83,5 +74,10 @@ public class RedisConfig {
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(config)
                 .build();
+    }
+
+    @Bean
+    public RedisSerializer<Object> springSessionDefaultRedisSerializer() {
+        return new GenericJackson2JsonRedisSerializer();
     }
 }

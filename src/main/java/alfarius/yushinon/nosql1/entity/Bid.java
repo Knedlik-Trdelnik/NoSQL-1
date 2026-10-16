@@ -1,5 +1,6 @@
 package alfarius.yushinon.nosql1.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -11,6 +12,7 @@ import java.util.List;
 @Table(name = "bids")
 @Getter
 @Setter
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Bid {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
