@@ -1,0 +1,61 @@
+package alfarius.yushinon.nosql1.entity.mongo;
+
+public enum Actions {
+
+    // Authentication
+    LOGIN_SUCCESS,
+    LOGIN_FAILED,
+    LOGOUT,
+    TOKEN_REFRESHED,
+    TOKEN_INVALIDATED,
+    ACCESS_DENIED,
+
+    // Users
+    USER_REGISTERED,
+    USER_CREATED,
+    USER_UPDATED,
+    USER_DELETED,
+    USER_ENABLED,
+    USER_DISABLED,
+    USER_BLOCKED,
+    USER_UNBLOCKED,
+    USER_ROLE_CHANGED,
+    USER_PASSWORD_CHANGED,
+    USER_PASSWORD_RESET,
+
+    // Roles
+    ROLE_CREATED,
+    ROLE_UPDATED,
+    ROLE_DELETED,
+    ROLE_ASSIGNED,
+    ROLE_REMOVED,
+
+    // Rooms / Audiences
+    ROOM_CREATED,
+    ROOM_UPDATED,
+    ROOM_DELETED,
+    ROOM_VIEWED,
+
+    // Booking requests
+    BOOKING_REQUEST_CREATED,
+    BOOKING_REQUEST_UPDATED,
+    BOOKING_REQUEST_CANCELLED,
+    BOOKING_REQUEST_APPROVED,
+    BOOKING_REQUEST_REJECTED,
+
+    // Bookings
+    BOOKING_CREATED,
+    BOOKING_UPDATED,
+    BOOKING_CANCELLED,
+    BOOKING_CONFIRMED,
+    BOOKING_COMPLETED,
+
+    // Administrative actions
+    ADMIN_ACTION,
+    PERMISSION_CHANGED,
+
+    // System
+    DATA_EXPORTED,
+    DATA_IMPORTED,
+    SETTINGS_UPDATED
+}
