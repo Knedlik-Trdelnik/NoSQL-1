@@ -39,7 +39,7 @@ public class Bid {
     )
     private List<TimeWindow> timeWindows;
 
-    // хуета с фронта
+    // фигня с фронта
     @Transient
     private Long serviceId;
 
