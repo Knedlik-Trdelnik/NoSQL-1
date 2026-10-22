@@ -22,7 +22,7 @@ public class AdminBookingController {
 
     @PutMapping("/bookings/{id}/status")
     public ResponseEntity<Void> updateBookingStatus(
-            @PathVariable Long id,
+            @PathVariable String id,
             @RequestParam String status) {
         bookingService.updateBookingStatus(id, status);
         return ResponseEntity.ok().build();

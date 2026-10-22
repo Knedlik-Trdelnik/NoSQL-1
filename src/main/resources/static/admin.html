@@ -139,6 +139,31 @@
                 </table>
             </div>
         </section>
+        <!-- СЕКЦИЯ ЛОГОВ (ЖУРНАЛ ДЕЙСТВИЙ) -->
+        <section id="logs" class="panel requests-panel" style="margin-top: 30px;">
+            <div class="panel-heading">
+                <div>
+                    <p class="section-label">AUDIT LOGS</p>
+                    <h2>Журнал действий системы</h2>
+                </div>
+                <button onclick="fetchLogs()" class="btn-refresh">Обновить логи <span>↻</span></button>
+            </div>
+            <div class="table-wrap">
+                <table class="table">
+                    <thead>
+                    <tr>
+                        <th>Дата (День)</th>
+                        <th>Пользователь</th>
+                        <th>Роль</th>
+                        <th>Действие</th>
+                    </tr>
+                    </thead>
+                    <tbody id="logs-table-body">
+                    <tr><td colspan="4" class="empty-cell">Загружаем логи…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
 
         <section id="admin" class="panel admin-panel">
             <div>

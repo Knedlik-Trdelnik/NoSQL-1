@@ -20,7 +20,4 @@ public class Classroom implements Serializable {
     @Column(name = "name", nullable = false)
     private String name;
 
-    @JsonIgnore
-    @OneToMany(mappedBy = "classroom")
-    private List<Bid> bids;
 }

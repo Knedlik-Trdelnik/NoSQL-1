@@ -1,58 +1,36 @@
 package alfarius.yushinon.nosql1.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import alfarius.yushinon.nosql1.entity.mongo.ClassroomEmbedded;
+import alfarius.yushinon.nosql1.entity.mongo.UserEmbedded;
+import lombok.Data;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
+import org.springframework.data.mongodb.core.mapping.Document;
+
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.List;
 
-@Entity
-@Table(name = "bids")
-@Getter
-@Setter
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+@Data
+@Document(collection = "bids")
+@CompoundIndexes({
+        @CompoundIndex(name = "rule_date_idx", def = "{'processingRuleId': 1, 'updatedAt': -1}")
+})
 public class Bid {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(name = "name")
+    private String id;
     private String name;
-
-    @Column(name = "description")
     private String description;
-
-    @Column(name = "time_to_life")
     private LocalDateTime timeToLife;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "classroom_id", nullable = false)
-    private Classroom classroom;
-
-    @ManyToMany
-    @JoinTable(
-            name = "bid_time_window",
-            joinColumns = @JoinColumn(name = "bid_id"),
-            inverseJoinColumns = @JoinColumn(name = "time_window_id")
-    )
+    private ClassroomEmbedded classroom;
     private List<TimeWindow> timeWindows;
 
-    // фигня с фронта
-    @Transient
-    private Long serviceId;
-
-    @Transient
-    private Long timeWindowId;
-
-    @Transient
-    private LocalTime timeStart;
-
-    @Transient
-    private LocalTime timeEnd;
-
-    @Transient
+    private UserEmbedded applicant;
+    private UserEmbedded inspector;
     private String status;
 
+    private List<String> tags;
+    private LocalDateTime updatedAt;
+    private String processingRuleId;
 }

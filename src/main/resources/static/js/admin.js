@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (getToken()) {
         fetchBookings(); // Грузим заявки только если пользователь авторизован
+        fetchLogs();
     }
 });
 
@@ -71,6 +72,11 @@ async function logout() {
 
     notify('Вы вышли из системы');
 }
+
+function removeToken() {
+    localStorage.removeItem(getToken());
+}
+
 
 // Вход
 function loginUser(event) {
@@ -169,8 +175,8 @@ function fetchBookings() {
                         <td><span class="status ${statusClass(b.status)}">${safeText(b.status)}</span></td>
                         <td>
                             <div class="action-group">
-                                <button class="action-button approve" onclick="updateStatus(${Number(b.id)}, 'APPROVED')">Одобрить</button>
-                                <button class="action-button reject" onclick="updateStatus(${Number(b.id)}, 'REJECTED')">Отклонить</button>
+                                <button class="action-button approve" onclick="updateStatus('${safeText(b.id)}', 'APPROVED')">Одобрить</button>
+                                <button class="action-button reject" onclick="updateStatus('${safeText(b.id)}', 'REJECTED')">Отклонить</button>
                             </div>
                         </td>
                     </tr>
@@ -215,3 +221,48 @@ function request(url, options = {}) {
         return r;
     });
 }
+// Загрузка логов из MongoDB
+function fetchLogs() {
+    request(`${API_URL}/logs`) // Эндпоинт на бэкенде
+        .then(r => r.json())
+        .then(logs => {
+            const tbody = document.getElementById('logs-table-body');
+            if (!tbody) return;
+
+            if (!logs || logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="empty-cell">Логи пока отсутствуют</td></tr>';
+                return;
+            }
+
+            // Разворачиваем вложенные действия (certainLog) из документов по дням
+            let rowsHtml = '';
+            logs.forEach(logDoc => {
+                const logDate = logDoc.date || '—';
+                const actions = logDoc.certainLog || [];
+
+                if (actions.length === 0) {
+                    rowsHtml += `<tr><td>${safeText(logDate)}</td><td colspan="3" style="color: rgba(255,255,255,0.4);">Нет записей за этот день</td></tr>`;
+                } else {
+                    actions.forEach(action => {
+                        rowsHtml += `
+                            <tr>
+                                <td><code>${safeText(logDate)}</code></td>
+                                <td><strong>${safeText(action.username || 'Система')}</strong></td>
+                                <td><span class="status status-pending">${safeText(action.userRole || 'USER')}</span></td>
+                                <td><span style="color: #ffafd8; font-weight: 600;">${safeText(action.action)}</span></td>
+                            </tr>
+                        `;
+                    });
+                }
+            });
+
+            tbody.innerHTML = rowsHtml;
+        })
+        .catch(err => {
+            const tbody = document.getElementById('logs-table-body');
+            if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="empty-cell">Не удалось загрузить журнал действий</td></tr>';
+        });
+}
+
+// Не забудьте добавить вызов fetchLogs() в ваш изначальный DOMContentLoaded в admin.js:
+// if (getToken()) { fetchBookings(); fetchLogs(); }

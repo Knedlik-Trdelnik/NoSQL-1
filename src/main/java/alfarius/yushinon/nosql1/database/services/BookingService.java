@@ -2,7 +2,9 @@ package alfarius.yushinon.nosql1.database.services;
 
 import alfarius.yushinon.nosql1.database.repositories.*;
 import alfarius.yushinon.nosql1.entity.*;
-import org.redisson.api.RLock;
+import alfarius.yushinon.nosql1.entity.mongo.Actions;
+import alfarius.yushinon.nosql1.entity.mongo.CertainAction;
+import alfarius.yushinon.nosql1.entity.mongo.UserEmbedded;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
@@ -11,131 +13,85 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Service
+
 public class BookingService {
 
     @Autowired
     private BidRepository bidRepository;
 
     @Autowired
-    private ClassroomRepository classroomRepository;
-
-    @Autowired
-    private TimeWindowRepository timeWindowRepository;
-
-    @Autowired
-    private BidHandlerRepository bidHandlerRepository;
-
-    @Autowired
     private UserRepository userRepository;
 
     @Autowired
-    private RedissonClient redissonClient; // <- тут начинается пиздец с кешами
+    private RedissonClient redissonClient;
 
     @Autowired
     private StringRedisTemplate redisTemplate;
 
+    @Autowired
+    private LogService logService;
+
     private User getCurrentUser() {
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        String username;
-
-        if (principal instanceof UserDetails userDetails) {
-            username = userDetails.getUsername();
-        } else {
-            username = principal.toString();
-        }
-
+        String username = (principal instanceof UserDetails userDetails) ? userDetails.getUsername() : principal.toString();
         return userRepository.findByUsername(username);
+    }
+
+    public String getCurrentUsername() {
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        return (principal instanceof UserDetails userDetails) ? userDetails.getUsername() : principal.toString();
     }
 
     @CacheEvict(value = {"all_bookings", "user_bookings", "available_slots"}, allEntries = true)
     public void createBooking(Bid inputBid) {
-        Long serviceId = inputBid.getServiceId();
-        Long timeWindowId = inputBid.getTimeWindowId();
+        User currentUser = getCurrentUser();
 
-        String bookedKey = "booked:classroom:" + serviceId + ":slot:" + timeWindowId;
-        if (Boolean.TRUE.equals(redisTemplate.hasKey(bookedKey))) {
-            throw new RuntimeException("Этот временной слот уже успешно забронирован другим пользователем.");
-        }
+        UserEmbedded applicantEmb = new UserEmbedded();
+        applicantEmb.setId(currentUser.getId());
+        applicantEmb.setUsername(currentUser.getUsername());
 
-        String lockKey = "lock:classroom:" + serviceId + (timeWindowId != null ? ":slot:" + timeWindowId : "");
-        RLock lock = redissonClient.getLock(lockKey);
+        inputBid.setApplicant(applicantEmb);
+        inputBid.setUpdatedAt(LocalDateTime.now());
+        inputBid.setStatus("PENDING");
 
-        try {
-            boolean isLocked = lock.tryLock(2, 5, TimeUnit.SECONDS);
-            if (!isLocked) {
-                throw new RuntimeException("Этот слот сейчас параллельно обрабатывается. Повторите попытку.");
-            }
+        Bid savedBid = bidRepository.save(inputBid);
 
-            User currentUser = getCurrentUser();
+        // TTL на 5 минут
+        String cartKey = "cart:bid:" + savedBid.getId();
+        redisTemplate.opsForValue().set(cartKey, "PENDING", 5, TimeUnit.MINUTES);
 
-            Classroom classroom = classroomRepository.findById(serviceId)
-                    .orElseThrow(() -> new RuntimeException("Аудитория не найдена"));
-            inputBid.setClassroom(classroom);
-            inputBid.setName("Заявка на аудиторию " + classroom.getName());
-
-            List<TimeWindow> timeWindows = new ArrayList<>();
-            if (timeWindowId != null) {
-                TimeWindow timeWindow = timeWindowRepository.findById(timeWindowId)
-                        .orElseThrow(() -> new RuntimeException("Временной слот не найден"));
-                timeWindows.add(timeWindow);
-            } else if (inputBid.getTimeStart() != null && inputBid.getTimeEnd() != null) {
-                TimeWindow customWindow = new TimeWindow();
-                customWindow.setTimeStart(inputBid.getTimeStart());
-                customWindow.setTimeEnd(inputBid.getTimeEnd());
-                customWindow = timeWindowRepository.save(customWindow);
-                timeWindows.add(customWindow);
-            }
-            inputBid.setTimeWindows(timeWindows);
-
-            Bid savedBid = bidRepository.save(inputBid);
-
-            BidHandler handler = new BidHandler();
-            handler.setBid(savedBid);
-            handler.setApplicant(currentUser);
-            bidHandlerRepository.save(handler);
-
-            String cartKey = "cart:bid:" + savedBid.getId();
-            redisTemplate.opsForValue().set(cartKey, "PENDING", 5, TimeUnit.MINUTES);
-
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("Ошибка блокировки Redis", e);
-        } finally {
-            if (lock.isHeldByCurrentThread()) {
-                lock.unlock();
-            }
-        }
+        // ЛОГИРОВАНИЕ 1: Поступление новой заявки
+        CertainAction action = new CertainAction();
+        action.setUsername(currentUser.getUsername());
+        action.setUserRole(currentUser.getRole());
+        action.setAction(Actions.BOOKING_CREATED);
+        logService.safeCertainLog(action);
     }
 
-    @Transactional(readOnly = true)
-    @Cacheable(
-            value = "user_bookings",
-            key = "T(org.springframework.security.core.context.SecurityContextHolder).getContext().getAuthentication().getName()"
-    )
+    @Cacheable(value = "user_bookings", key = "#root.target.getCurrentUsername()")
     public List<Bid> getBookingsForCurrentUser() {
         User currentUser = getCurrentUser();
-        List<BidHandler> handlers = bidHandlerRepository.findByApplicant(currentUser);
-        List<Bid> bids = handlers.stream().map(BidHandler::getBid).toList();
+        List<Bid> bids = bidRepository.findAll().stream()
+                .filter(b -> b.getApplicant() != null && b.getApplicant().getId().equals(currentUser.getId()))
+                .toList();
         bids.forEach(bid -> bid.setStatus(getBidStatusFromRedis(bid.getId())));
         return bids;
     }
 
-    @Transactional(readOnly = true)
-    @Cacheable(value = "all_bookings", key = "'all'") // ONLY FOR MADOKA PERSON (админка)
+    @Cacheable(value = "all_bookings", key = "'all'")
     public List<Bid> getAllBookings() {
         List<Bid> bids = bidRepository.findAll();
         bids.forEach(bid -> bid.setStatus(getBidStatusFromRedis(bid.getId())));
         return bids;
     }
 
-    public String getBidStatusFromRedis(Long bookingId) {
+    public String getBidStatusFromRedis(String bookingId) {
         String permanentStatus = redisTemplate.opsForValue().get("status:bid:" + bookingId);
         if (permanentStatus != null) {
             return permanentStatus;
@@ -150,42 +106,35 @@ public class BookingService {
     }
 
     @CacheEvict(value = {"all_bookings", "user_bookings", "available_slots"}, allEntries = true)
-    @Transactional
-    public void updateBookingStatus(Long bookingId, String newStatus) {
+    public void updateBookingStatus(String bookingId, String newStatus) {
         Bid bid = bidRepository.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Заявка не найдена"));
 
         String cartKey = "cart:bid:" + bookingId;
-        Long expireSeconds = redisTemplate.getExpire(cartKey);
-
-        if (expireSeconds != null && expireSeconds == -2) {
-            redisTemplate.opsForValue().set("status:bid:" + bookingId, "REJECTED");
+        Actions logAction = null;
+        User adminUser = getCurrentUser();
+        if ("APPROVED".equalsIgnoreCase(newStatus)) {
+            redisTemplate.opsForValue().set("status:bid:" + bookingId, "APPROVED");
+            bid.setStatus("APPROVED");
+            bid.setUpdatedAt(LocalDateTime.now());
+            bidRepository.save(bid);
             redisTemplate.delete(cartKey);
-        } else {
-            if ("APPROVED".equalsIgnoreCase(newStatus)) {
-                redisTemplate.opsForValue().set("status:bid:" + bookingId, "APPROVED");
-                Long classroomId = bid.getServiceId();
-                if (classroomId == null && bid.getClassroom() != null) {
-                    classroomId = bid.getClassroom().getId();
-                }
-                Long timeWindowId = bid.getTimeWindowId();
-                if (timeWindowId == null && bid.getTimeWindows() != null && !bid.getTimeWindows().isEmpty()) {
-                    timeWindowId = bid.getTimeWindows().get(0).getId();
-                }
-                if (classroomId != null && timeWindowId != null) {
-                    String bookedKey = "booked:classroom:" + classroomId + ":slot:" + timeWindowId;
-                    redisTemplate.opsForValue().set(bookedKey, "TAKEN");
-                } else {
-                    System.err.println("[Redis Lock Error] Не удалось определить classroomId или timeWindowId для bid #" + bookingId);
-                }
-
-                redisTemplate.delete(cartKey);
-
-            } else if ("REJECTED".equalsIgnoreCase(newStatus)) {
-                redisTemplate.opsForValue().set("status:bid:" + bookingId, "REJECTED");
-                redisTemplate.delete(cartKey);
-            }
+            logAction = Actions.BOOKING_REQUEST_APPROVED;
+        } else if ("REJECTED".equalsIgnoreCase(newStatus)) {
+            redisTemplate.opsForValue().set("status:bid:" + bookingId, "REJECTED");
+            bid.setStatus("REJECTED");
+            bid.setUpdatedAt(LocalDateTime.now());
+            bidRepository.save(bid);
+            redisTemplate.delete(cartKey);
+            logAction = Actions.BOOKING_REQUEST_REJECTED;
         }
+
+        // --- ЛОГИРОВАНИЕ ДЕЙСТВИЯ АДМИНА ---
+        CertainAction action = new CertainAction();
+        action.setUsername(adminUser != null ? adminUser.getUsername() : getCurrentUsername());
+        action.setUserRole(adminUser != null ? adminUser.getRole() : null);
+        action.setAction(logAction);
+        logService.safeCertainLog(action);
     }
 
     public boolean isSlotAvailable(Long classroomId, Long timeWindowId) {

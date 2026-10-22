@@ -25,7 +25,4 @@ public class TimeWindow {
     @Column(name = "time_duration")
     private Integer timeDuration;
 
-    @JsonIgnore
-    @ManyToMany(mappedBy = "timeWindows")
-    private List<Bid> bids;
 }
