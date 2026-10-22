@@ -43,7 +43,8 @@ public class WebSecurityConfig {
                                 "/api/auth/**",
                                 "/api/services/**",
                                 "/api/services/classrooms",
-                                "/api/services/bookings/my"
+                                "/api/services/bookings/my",
+                                "/api/analytics/popular-tags"
                         ).permitAll()
                         .requestMatchers("/api/logout").authenticated()
                         .requestMatchers("/admin.html").permitAll() // <- -- -- Я В РОТ ЕБАЛ СВИНЕЙ

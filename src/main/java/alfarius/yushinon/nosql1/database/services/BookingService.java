@@ -56,6 +56,10 @@ public class BookingService {
         applicantEmb.setId(currentUser.getId());
         applicantEmb.setUsername(currentUser.getUsername());
 
+        if (inputBid.getTags() == null || inputBid.getTags().isEmpty()) {
+            inputBid.setTags(List.of("nosql", "spring", "auditorium"));
+        }
+
         inputBid.setApplicant(applicantEmb);
         inputBid.setUpdatedAt(LocalDateTime.now());
         inputBid.setStatus("PENDING");
