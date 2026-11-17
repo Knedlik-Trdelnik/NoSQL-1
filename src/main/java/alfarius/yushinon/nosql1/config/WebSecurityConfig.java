@@ -44,7 +44,8 @@ public class WebSecurityConfig {
                                 "/api/services/**",
                                 "/api/services/classrooms",
                                 "/api/services/bookings/my",
-                                "/api/analytics/popular-tags"
+                                "/api/analytics/popular-tags",
+                                "/api/cassandra/**"
                         ).permitAll()
                         .requestMatchers("/api/logout").authenticated()
                         .requestMatchers("/admin.html").permitAll() // <- -- -- Я В РОТ ЕБАЛ СВИНЕЙ
