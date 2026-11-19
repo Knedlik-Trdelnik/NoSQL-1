@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мир Мадоки — Apache Cassandra Monitor</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="ambient ambient-one"></div>
+<div class="ambient ambient-two"></div>
+
+<header class="topbar">
+    <a class="brand" href="index.html">
+        <span class="brand-mark">U</span><span>Мир<span>Мадоки</span></span>
+    </a>
+    <nav class="main-nav">
+        <a href="/index.html">Главная</a>
+        <a href="/user.html">Клиент</a>
+        <a href="/admin.html">Мадока (Админка)</a>
+        <a href="/cassandra.html" class="active active-nav">Cassandra</a>
+    </nav>
+    <div class="topbar-meta">
+        <span class="live-dot" id="cluster-dot"></span>
+        <span id="cluster-summary">Проверка кластера…</span>
+    </div>
+</header>
+
+<div id="status-message" class="message hidden" role="status"></div>
+
+<main class="dashboard">
+    <section class="hero">
+        <div>
+            <p class="eyebrow">APACHE CASSANDRA · ВАРИАНТ №22222</p>
+            <h1>Журнал REST API.<br><em>Состояние узлов.</em></h1>
+            <p class="hero-text">
+                Мониторинг 3-узлового кластера (RF = 3), проверка ответов координатора при разных уровнях
+                согласованности (QUORUM / ONE / ALL) и поиск по 3 денормализованным таблицам с часовым бакетированием.
+            </p>
+            <div class="hero-actions">
+                <button class="btn-hero" onclick="refreshAll()">Обновить всё <span>↻</span></button>
+                <button class="btn-hero-ghost" onclick="document.getElementById('logs-section').scrollIntoView({behavior:'smooth'})">
+                    К журналу запросов ↓
+                </button>
+            </div>
+        </div>
+        <div class="hero-stats">
+            <strong id="up-nodes-count">—/—</strong>
+            <span>узлов в статусе UP (Write: <b id="cfg-write">QUORUM</b> · Read: <b id="cfg-read">ONE</b>)</span>
+        </div>
+        <div class="hero-sparkles" aria-hidden="true">✦<span>★</span><i>✧</i></div>
+    </section>
+
+    <!-- БЛОК 1: УЗЛЫ КЛАСТЕРА И ОТВЕТЫ ОТ УЗЛОВ -->
+    <section class="panel" style="margin-bottom: 28px;">
+        <div class="panel-heading">
+            <div>
+                <p class="section-label">CLUSTER TOPOLOGY · RF = 3</p>
+                <h2>Узлы кластера Cassandra</h2>
+            </div>
+            <button onclick="loadClusterNodes()" class="btn-refresh">Обновить узлы ↻</button>
+        </div>
+
+        <div class="table-wrap">
+            <table class="table">
+                <thead>
+                <tr>
+                    <th>Узел (EndPoint)</th>
+                    <th>Datacenter / Rack</th>
+                    <th>Статус</th>
+                    <th>Версия</th>
+                    <th>Open Connections</th>
+                    <th>Host ID</th>
+                </tr>
+                </thead>
+                <tbody id="nodes-table-body">
+                <tr><td colspan="6" class="empty-cell">Загружаем состояние узлов…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- БЛОК 2: ПАНЕЛЬ ТЕСТИРОВАНИЯ СОГЛАСОВАННОСТИ И ТАБЛИЦА ОТВЕТОВ УЗЛОВ -->
+    <section class="panel" style="margin-bottom: 28px;">
+        <div class="panel-heading">
+            <div>
+                <p class="section-label">CONSISTENCY & NODE RESPONSES</p>
+                <h2>Ответы от узлов (тест записи и чтения)</h2>
+            </div>
+            <div class="inline-controls">
+                <select id="probe-consistency" class="dark-select" aria-label="Уровень согласованности">
+                    <option value="QUORUM">QUORUM (запись по варианту)</option>
+                    <option value="ONE">ONE (чтение по варианту)</option>
+                    <option value="ALL">ALL</option>
+                    <option value="LOCAL_QUORUM">LOCAL_QUORUM</option>
+                </select>
+                <button class="btn-refresh" onclick="runReadProbe()">Пробное чтение</button>
+                <button class="btn-refresh btn-pink" onclick="runManualWrite(false)">Тестовая запись (200)</button>
+                <button class="btn-refresh btn-danger" onclick="runManualWrite(true)">Тестовая ошибка (500)</button>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table class="table">
+                <thead>
+                <tr>
+                    <th>Время</th>
+                    <th>Операция</th>
+                    <th>Consistency</th>
+                    <th>Координатор / Узел</th>
+                    <th>Результат</th>
+                    <th>Задержка</th>
+                    <th>Детали ответа</th>
+                </tr>
+                </thead>
+                <tbody id="node-responses-body">
+                <tr><td colspan="7" class="empty-cell">Нажмите «Пробное чтение» или «Тестовая запись», чтобы увидеть ответы узлов…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- БЛОК 3: ЖУРНАЛ ЗАПРОСОВ ИЗ 3 ТАБЛИЦ CASSANDRA -->
+    <section id="logs-section" class="panel">
+        <div class="panel-heading">
+            <div>
+                <p class="section-label">QUERY-DRIVEN TABLES · NO ALLOW FILTERING</p>
+                <h2>Журнал обращений к REST API</h2>
+            </div>
+            <div class="meta-pills" id="query-meta-pills">
+                <span class="meta-pill">CL: —</span>
+                <span class="meta-pill">Задержка: — мс</span>
+            </div>
+        </div>
+
+        <div class="query-toolbar">
+            <label>
+                Таблица (запрос)
+                <select id="query-mode" onchange="onQueryModeChange()">
+                    <option value="errors">1. Ошибки компонента (api_errors_by_component)</option>
+                    <option value="all">2. Все обращения за час (api_logs_by_hour)</option>
+                    <option value="endpoint">3. По эндпоинту (api_logs_by_endpoint)</option>
+                </select>
+            </label>
+
+            <label id="component-filter-wrap">
+                Компонент (контроллер)
+                <input id="filter-component" type="text" value="AuthController" placeholder="AuthController">
+            </label>
+
+            <label id="endpoint-filter-wrap" class="hidden">
+                Endpoint (URI)
+                <input id="filter-endpoint" type="text" value="/api/auth/login" placeholder="/api/auth/login">
+            </label>
+
+            <label>
+                Часовой бакет (UTC)
+                <input id="filter-bucket" type="text" placeholder="YYYY-MM-DDTHH">
+            </label>
+
+            <label>
+                Consistency (чтение)
+                <select id="filter-consistency">
+                    <option value="">По умолчанию (ONE)</option>
+                    <option value="ONE">ONE</option>
+                    <option value="QUORUM">QUORUM</option>
+                    <option value="ALL">ALL</option>
+                </select>
+            </label>
+
+            <label>
+                Размер стр.
+                <select id="filter-page-size">
+                    <option value="10" selected>10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                </select>
+            </label>
+        </div>
+
+        <div class="toolbar-actions">
+            <button class="btn-hero" style="padding: 10px 20px; font-size: 13px;" onclick="loadLogs(true)">
+                Выполнить запрос ✦
+            </button>
+            <button id="next-page-btn" class="btn-refresh" onclick="loadNextPage()" disabled>
+                Следующая страница (pagingState) →
+            </button>
+            <span id="paging-info" class="paging-info">Страница 1</span>
+        </div>
+
+        <div class="table-wrap">
+            <table class="table">
+                <thead>
+                <tr>
+                    <th>Время (UTC)</th>
+                    <th>Компонент / Метод</th>
+                    <th>HTTP / Endpoint</th>
+                    <th>Статус</th>
+                    <th>Сообщение об ошибке</th>
+                    <th>Пользователь / IP</th>
+                    <th>Длит.</th>
+                </tr>
+                </thead>
+                <tbody id="logs-table-body">
+                <tr><td colspan="7" class="empty-cell">Загружаем записи из Cassandra…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+
+<footer>
+    <span>© 2026 Мир Мадоки</span>
+    <span class="api-mark">Apache Cassandra 4.1 · RF=3 · QUORUM / ONE</span>
+</footer>
+
+<style>
+    .hidden { display: none !important; }
+
+    .inline-controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .dark-select, .query-toolbar input, .query-toolbar select {
+        background: rgba(10, 5, 28, 0.7);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        color: var(--ink);
+        padding: 9px 12px;
+        font-family: 'Manrope', sans-serif;
+        font-size: 12px;
+        outline: none;
+    }
+
+    .dark-select:focus, .query-toolbar input:focus, .query-toolbar select:focus {
+        border-color: var(--pink);
+    }
+
+    .btn-pink {
+        background: rgba(255, 141, 202, 0.18);
+        border-color: rgba(255, 141, 202, 0.45);
+        color: #ffd1e9;
+    }
+
+    .btn-danger {
+        background: rgba(248, 113, 113, 0.16);
+        border-color: rgba(248, 113, 113, 0.4);
+        color: #fca5a5;
+    }
+
+    .query-toolbar {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 14px;
+        margin-bottom: 16px;
+    }
+
+    .query-toolbar label {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--muted);
+    }
+
+    .toolbar-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .paging-info {
+        font-size: 12px;
+        color: var(--muted);
+    }
+
+    .meta-pills {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .meta-pill {
+        background: rgba(117, 216, 255, 0.12);
+        border: 1px solid rgba(117, 216, 255, 0.3);
+        color: var(--blue);
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 12px;
+    }
+
+    .subtext {
+        display: block;
+        color: var(--muted);
+        font-size: 11px;
+        margin-top: 2px;
+    }
+
+    button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+    }
+</style>
+
+<script>
+    let currentPagingState = null;
+    let currentPageNumber = 1;
+    const nodeResponsesHistory = [];
+
+    function getCurrentUtcHourBucket() {
+        return new Date().toISOString().slice(0, 13);
+    }
+
+    function showToast(text, isError = false) {
+        const el = document.getElementById('status-message');
+        el.textContent = text;
+        el.className = 'message ' + (isError ? 'error' : 'success');
+        setTimeout(() => el.classList.add('hidden'), 3500);
+    }
+
+    function escapeHtml(val) {
+        if (val === null || val === undefined) return '—';
+        return String(val)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    async function loadClusterNodes() {
+        const tbody = document.getElementById('nodes-table-body');
+        try {
+            const res = await fetch('/api/cassandra/logs/cluster/nodes');
+            const data = await res.json();
+
+            document.getElementById('up-nodes-count').textContent = `${data.upNodes}/${data.totalNodes}`;
+            document.getElementById('cfg-write').textContent = data.defaultWriteConsistency;
+            document.getElementById('cfg-read').textContent = data.defaultReadConsistency;
+            document.getElementById('cluster-summary').textContent =
+                `Узлов UP: ${data.upNodes} из ${data.totalNodes}`;
+
+            const dot = document.getElementById('cluster-dot');
+            dot.style.background = data.upNodes === data.totalNodes ? '#4ade80' : (data.upNodes > 0 ? '#fbbf24' : '#f87171');
+            dot.style.boxShadow = `0 0 10px ${dot.style.background}`;
+
+            if (!data.nodes || data.nodes.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">Узлы не обнаружены</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.nodes.map(n => {
+                const isUp = n.state === 'UP';
+                const badgeClass = isUp ? 'status-approved' : 'status-rejected';
+                return `
+                    <tr>
+                        <td class="mono">${escapeHtml(n.endPoint)}<span class="subtext">RPC: ${escapeHtml(n.broadcastRpcAddress)}</span></td>
+                        <td>${escapeHtml(n.datacenter)} / ${escapeHtml(n.rack)}</td>
+                        <td><span class="status ${badgeClass}">${escapeHtml(n.state)}</span></td>
+                        <td class="mono">${escapeHtml(n.cassandraVersion)}</td>
+                        <td>${escapeHtml(n.openConnections)}</td>
+                        <td class="mono">${escapeHtml(n.hostId)}</td>
+                    </tr>
+                `;
+            }).join('');
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="6" class="empty-cell">Ошибка опроса кластера: ${escapeHtml(err.message)}</td></tr>`;
+        }
+    }
+
+    function pushNodeResponse(entry) {
+        nodeResponsesHistory.unshift(entry);
+        if (nodeResponsesHistory.length > 20) nodeResponsesHistory.pop();
+
+        const tbody = document.getElementById('node-responses-body');
+        tbody.innerHTML = nodeResponsesHistory.map(r => `
+            <tr>
+                <td class="mono">${escapeHtml(r.time)}</td>
+                <td><b>${escapeHtml(r.operation)}</b></td>
+                <td><span class="status status-pending">${escapeHtml(r.consistencyLevel)}</span></td>
+                <td class="mono">${escapeHtml(r.coordinator || '—')}</td>
+                <td><span class="status ${r.success ? 'status-approved' : 'status-rejected'}">${r.success ? 'OK (' + r.httpStatus + ')' : 'FAILED (' + r.httpStatus + ')'}</span></td>
+                <td class="mono">${escapeHtml(r.elapsedMs)} мс</td>
+                <td class="mono" style="max-width: 340px; word-break: break-word;">${escapeHtml(r.details)}</td>
+            </tr>
+        `).join('');
+    }
+
+    async function runReadProbe() {
+        const cl = document.getElementById('probe-consistency').value;
+        const bucket = document.getElementById('filter-bucket').value.trim();
+        const params = new URLSearchParams({ consistency: cl });
+        if (bucket) params.append('hourBucket', bucket);
+
+        try {
+            const res = await fetch('/api/cassandra/logs/cluster/probe?' + params.toString());
+            const data = await res.json();
+            pushNodeResponse({
+                time: new Date().toLocaleTimeString(),
+                operation: 'READ_PROBE',
+                consistencyLevel: data.consistencyLevel || cl,
+                coordinator: data.coordinator || '—',
+                success: Boolean(data.success),
+                httpStatus: res.status,
+                elapsedMs: data.elapsedMs ?? '—',
+                details: data.success
+                    ? `rows=${data.rowsFound}, size=${data.responseSizeBytes}B, schemaAgreed=${data.schemaInAgreement}`
+                    : data.error
+            });
+            loadClusterNodes();
+        } catch (err) {
+            showToast('Ошибка запроса к узлу: ' + err.message, true);
+        }
+    }
+
+    async function runManualWrite(isError) {
+        const cl = document.getElementById('probe-consistency').value;
+        const payload = {
+            component: isError ? 'CassandraTestController' : 'BookingController',
+            methodName: isError ? 'simulateFailure' : 'createBid',
+            httpMethod: 'POST',
+            endpoint: isError ? '/api/test/error' : '/api/services/bookings',
+            statusCode: isError ? 500 : 200,
+            error: isError,
+            errorMessage: isError ? 'Simulated error from UI monitor' : null,
+            username: 'madoka_ui',
+            clientIp: '127.0.0.1',
+            durationMs: 12
+        };
+
+        try {
+            const res = await fetch('/api/cassandra/logs/manual?consistency=' + encodeURIComponent(cl), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            pushNodeResponse({
+                time: new Date().toLocaleTimeString(),
+                operation: isError ? 'WRITE (ERROR)' : 'WRITE (OK)',
+                consistencyLevel: data.consistencyLevel || cl,
+                coordinator: 'coordinator (cluster)',
+                success: Boolean(data.success),
+                httpStatus: res.status,
+                elapsedMs: data.elapsedMs ?? '—',
+                details: data.success ? `eventId=${data.eventId}` : data.error
+            });
+
+            if (data.success) {
+                showToast(`Записано с ${data.consistencyLevel} за ${data.elapsedMs} мс`);
+                loadLogs(true);
+            } else {
+                showToast(`Запись ${cl} отклонена узлами (${res.status})`, true);
+            }
+            loadClusterNodes();
+        } catch (err) {
+            showToast('Сетевая ошибка при записи: ' + err.message, true);
+        }
+    }
+
+    function onQueryModeChange() {
+        const mode = document.getElementById('query-mode').value;
+        document.getElementById('component-filter-wrap').classList.toggle('hidden', mode !== 'errors');
+        document.getElementById('endpoint-filter-wrap').classList.toggle('hidden', mode !== 'endpoint');
+    }
+
+    async function loadLogs(resetPage = true, pagingStateOverride = null) {
+        const mode = document.getElementById('query-mode').value;
+        const bucket = document.getElementById('filter-bucket').value.trim();
+        const consistency = document.getElementById('filter-consistency').value;
+        const pageSize = document.getElementById('filter-page-size').value;
+
+        if (resetPage) {
+            currentPagingState = null;
+            currentPageNumber = 1;
+        }
+
+        const params = new URLSearchParams({ pageSize });
+        if (bucket) params.append('hourBucket', bucket);
+        if (consistency) params.append('consistency', consistency);
+        if (pagingStateOverride) params.append('pagingState', pagingStateOverride);
+
+        let url;
+        if (mode === 'errors') {
+            const comp = document.getElementById('filter-component').value.trim() || 'AuthController';
+            url = `/api/cassandra/logs/errors/${encodeURIComponent(comp)}?` + params.toString();
+        } else if (mode === 'endpoint') {
+            const ep = document.getElementById('filter-endpoint').value.trim() || '/api/auth/login';
+            params.append('endpoint', ep);
+            url = '/api/cassandra/logs/by-endpoint?' + params.toString();
+        } else {
+            url = '/api/cassandra/logs?' + params.toString();
+        }
+
+        const tbody = document.getElementById('logs-table-body');
+        try {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const page = await res.json();
+
+            currentPagingState = page.nextPagingState || null;
+            document.getElementById('next-page-btn').disabled = !page.hasNext || !currentPagingState;
+            document.getElementById('paging-info').textContent =
+                `Страница ${currentPageNumber} · записей: ${(page.items || []).length}${page.hasNext ? ' · есть ещё' : ' · конец'}`;
+
+            document.getElementById('query-meta-pills').innerHTML = `
+                <span class="meta-pill">CL: ${escapeHtml(page.consistencyLevel)}</span>
+                <span class="meta-pill">Задержка: ${escapeHtml(page.elapsedMs)} мс</span>
+            `;
+
+            const items = page.items || [];
+            if (items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">За выбранный час записей по этим фильтрам пока нет</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = items.map(item => {
+                const status = item.statusCode ?? 200;
+                const isErr = status >= 400 || item.error === true || Boolean(item.errorMessage);
+                const statusClass = isErr ? 'status-rejected' : 'status-approved';
+                const endpoint = item.endpoint || document.getElementById('filter-endpoint').value || '—';
+                const component = item.component || document.getElementById('filter-component').value || '—';
+                const timeStr = item.eventTime ? new Date(item.eventTime).toLocaleString('ru-RU') : '—';
+
+                return `
+                    <tr>
+                        <td class="mono">${escapeHtml(timeStr)}<span class="subtext">${escapeHtml(item.hourBucket)}</span></td>
+                        <td><b>${escapeHtml(component)}</b><span class="subtext mono">${escapeHtml(item.methodName)}()</span></td>
+                        <td class="mono"><span class="status status-pending" style="margin-right:6px;">${escapeHtml(item.httpMethod)}</span>${escapeHtml(endpoint)}</td>
+                        <td><span class="status ${statusClass}">${escapeHtml(status)}</span></td>
+                        <td class="mono" style="max-width:260px; word-break:break-word;">${escapeHtml(item.errorMessage || '—')}</td>
+                        <td>${escapeHtml(item.username)}<span class="subtext mono">${escapeHtml(item.clientIp)}</span></td>
+                        <td class="mono">${escapeHtml(item.durationMs)} мс</td>
+                    </tr>
+                `;
+            }).join('');
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="7" class="empty-cell">Ошибка загрузки логов: ${escapeHtml(err.message)}</td></tr>`;
+        }
+    }
+
+    function loadNextPage() {
+        if (!currentPagingState) return;
+        currentPageNumber += 1;
+        loadLogs(false, currentPagingState);
+    }
+
+    function refreshAll() {
+        loadClusterNodes();
+        loadLogs(true);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('filter-bucket').value = getCurrentUtcHourBucket();
+        onQueryModeChange();
+        refreshAll();
+    });
+</script>
+</body>
+</html>

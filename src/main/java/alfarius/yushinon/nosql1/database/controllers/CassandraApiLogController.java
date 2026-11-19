@@ -87,13 +87,61 @@ public class CassandraApiLogController {
             event.setEventTime(Instant.now());
         }
         long start = System.nanoTime();
-        UUID eventId = logService.saveApiEvent(event, cl);
-        long elapsedMs = (System.nanoTime() - start) / 1_000_000;
+        try {
+            UUID eventId = logService.saveApiEvent(event, cl);
+            long elapsedMs = (System.nanoTime() - start) / 1_000_000;
 
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "operation", "WRITE",
+                    "eventId", eventId.toString(),
+                    "consistencyLevel", cl.name(),
+                    "elapsedMs", elapsedMs
+            ));
+        } catch (Exception ex) {
+            long elapsedMs = (System.nanoTime() - start) / 1_000_000;
+            return ResponseEntity.status(503).body(Map.of(
+                    "success", false,
+                    "operation", "WRITE",
+                    "consistencyLevel", cl.name(),
+                    "elapsedMs", elapsedMs,
+                    "error", ex.getClass().getSimpleName() + ": " + ex.getMessage()
+            ));
+        }
+    }
+
+    @GetMapping("/cluster/nodes")
+    public ResponseEntity<Map<String, Object>> getClusterNodes() {
+        var nodes = logService.getClusterNodesInfo();
+        long upCount = nodes.stream().filter(n -> "UP".equals(n.get("state"))).count();
         return ResponseEntity.ok(Map.of(
-                "eventId", eventId.toString(),
-                "consistencyLevel", cl.name(),
-                "elapsedMs", elapsedMs
+                "totalNodes", nodes.size(),
+                "upNodes", upCount,
+                "downNodes", nodes.size() - upCount,
+                "defaultWriteConsistency", consistencyProperties.getWrite().name(),
+                "defaultReadConsistency", consistencyProperties.getRead().name(),
+                "nodes", nodes
         ));
+    }
+
+    @GetMapping("/cluster/probe")
+    public ResponseEntity<Map<String, Object>> probeCluster(
+            @RequestParam(required = false) DefaultConsistencyLevel consistency,
+            @RequestParam(required = false) String hourBucket) {
+
+        DefaultConsistencyLevel cl = consistency != null ? consistency : consistencyProperties.getRead();
+        long start = System.nanoTime();
+        try {
+            return ResponseEntity.ok(logService.probeReadConsistency(cl, hourBucket));
+        } catch (Exception ex) {
+            long elapsedMs = (System.nanoTime() - start) / 1_000_000;
+            return ResponseEntity.status(503).body(Map.of(
+                    "success", false,
+                    "operation", "READ_PROBE",
+                    "consistencyLevel", cl.name(),
+                    "elapsedMs", elapsedMs,
+                    "error", ex.getClass().getSimpleName() + ": " + ex.getMessage()
+            ));
+        }
     }
 }

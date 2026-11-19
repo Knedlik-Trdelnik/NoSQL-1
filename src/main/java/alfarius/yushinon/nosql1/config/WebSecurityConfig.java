@@ -35,6 +35,7 @@ public class WebSecurityConfig {
                                 "/madoka_opening.mp3",
                                 "/index.html",
                                 "/user.html",
+                                "/cassandra.html",
                                 "/403.html",
                                 "/js/**",
                                 "/css/**",

@@ -22,6 +22,16 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.ExecutionInfo;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.SimpleStatement;
+import com.datastax.oss.driver.api.core.metadata.Node;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.Base64;
@@ -216,5 +226,60 @@ public class CassandraApiLogService {
                 .consistencyLevel(cl.name())
                 .elapsedMs(elapsedMs)
                 .build();
+    }
+
+    private final CqlSession cqlSession;
+
+    public List<Map<String, Object>> getClusterNodesInfo() {
+        return cqlSession.getMetadata().getNodes().values().stream()
+                .sorted(Comparator.comparing(n -> n.getEndPoint().toString()))
+                .map(node -> {
+                    Map<String, Object> info = new LinkedHashMap<>();
+                    info.put("hostId", node.getHostId() != null ? node.getHostId().toString() : "unknown");
+                    info.put("endPoint", node.getEndPoint().toString());
+                    info.put("broadcastRpcAddress", node.getBroadcastRpcAddress().map(Object::toString).orElse("n/a"));
+                    info.put("datacenter", node.getDatacenter());
+                    info.put("rack", node.getRack());
+                    info.put("state", node.getState().name());
+                    info.put("cassandraVersion", node.getCassandraVersion() != null ? node.getCassandraVersion().toString() : "unknown");
+                    info.put("openConnections", node.getOpenConnections());
+                    info.put("upSinceMillis", node.getUpSinceMillis());
+                    return info;
+                })
+                .toList();
+    }
+
+    public Map<String, Object> probeReadConsistency(DefaultConsistencyLevel consistency, String hourBucket) {
+        ConsistencyLevel cl = consistency != null ? consistency : consistencyProperties.getRead();
+        String bucket = resolveBucket(hourBucket);
+        String keyspace = cqlSession.getKeyspace()
+                .map(id -> id.asCql(true))
+                .orElse("nosql_lab3");
+
+        SimpleStatement stmt = SimpleStatement.builder(
+                        "SELECT hour_bucket, event_id FROM " + keyspace + ".api_logs_by_hour WHERE hour_bucket = ? LIMIT 1")
+                .addPositionalValue(bucket)
+                .setConsistencyLevel(cl)
+                .build();
+
+        long start = System.nanoTime();
+        ResultSet rs = cqlSession.execute(stmt);
+        long elapsedMs = (System.nanoTime() - start) / 1_000_000;
+
+        ExecutionInfo ei = rs.getExecutionInfo();
+        Node coordinator = ei.getCoordinator();
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("success", true);
+        result.put("operation", "READ_PROBE");
+        result.put("consistencyLevel", cl.name());
+        result.put("coordinator", coordinator != null ? coordinator.getEndPoint().toString() : "unknown");
+        result.put("coordinatorHostId", coordinator != null && coordinator.getHostId() != null ? coordinator.getHostId().toString() : "unknown");
+        result.put("responseSizeBytes", ei.getResponseSizeInBytes());
+        result.put("speculativeExecutions", ei.getSpeculativeExecutionCount());
+        result.put("schemaInAgreement", ei.isSchemaInAgreement());
+        result.put("rowsFound", rs.getAvailableWithoutFetching());
+        result.put("elapsedMs", elapsedMs);
+        return result;
     }
 }
