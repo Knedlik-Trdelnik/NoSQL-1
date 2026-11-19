@@ -21,7 +21,7 @@ public class ClassroomController {
     ClassroomService classroomService;
 
     @GetMapping("/classrooms")
-    @Cacheable(value = "classrooms_cache")
+
     public ResponseEntity<List<Classroom>> getClassrooms() {
         // TODO: добавить кеширование аудиторий ФТМИ
         return ResponseEntity.ok(classroomService.getAllClassrooms());

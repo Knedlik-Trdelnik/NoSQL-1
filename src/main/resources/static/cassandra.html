@@ -342,7 +342,13 @@
         const tbody = document.getElementById('nodes-table-body');
         try {
             const res = await fetch('/api/cassandra/logs/cluster/nodes');
-            const data = await res.json();
+            const rawText = await res.text();
+            let data;
+            try {
+                data = rawText ? JSON.parse(rawText) : { success: false, error: `HTTP ${res.status} (пустой ответ)` };
+            } catch {
+                data = { success: false, error: `HTTP ${res.status}: ${rawText}` };
+            }
 
             document.getElementById('up-nodes-count').textContent = `${data.upNodes}/${data.totalNodes}`;
             document.getElementById('cfg-write').textContent = data.defaultWriteConsistency;
@@ -404,7 +410,13 @@
 
         try {
             const res = await fetch('/api/cassandra/logs/cluster/probe?' + params.toString());
-            const data = await res.json();
+            const rawText = await res.text();
+            let data;
+            try {
+                data = rawText ? JSON.parse(rawText) : { success: false, error: `HTTP ${res.status} (пустой ответ)` };
+            } catch {
+                data = { success: false, error: `HTTP ${res.status}: ${rawText}` };
+            }
             pushNodeResponse({
                 time: new Date().toLocaleTimeString(),
                 operation: 'READ_PROBE',
@@ -444,7 +456,13 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            const data = await res.json();
+            const rawText = await res.text();
+            let data;
+            try {
+                data = rawText ? JSON.parse(rawText) : { success: false, error: `HTTP ${res.status} (пустой ответ)` };
+            } catch {
+                data = { success: false, error: `HTTP ${res.status}: ${rawText}` };
+            }
             pushNodeResponse({
                 time: new Date().toLocaleTimeString(),
                 operation: isError ? 'WRITE (ERROR)' : 'WRITE (OK)',

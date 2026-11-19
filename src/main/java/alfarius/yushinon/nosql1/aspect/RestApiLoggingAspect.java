@@ -78,7 +78,7 @@ public class RestApiLoggingAspect {
                     .httpMethod(httpMethod)
                     .endpoint(endpoint)
                     .statusCode(statusCode)
-                    .isError(isError)
+                    .error(isError)
                     .errorMessage(errorMessage)
                     .username(username)
                     .clientIp(clientIp)

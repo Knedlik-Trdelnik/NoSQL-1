@@ -15,8 +15,10 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Service
 
@@ -57,7 +59,14 @@ public class BookingService {
         applicantEmb.setUsername(currentUser.getUsername());
 
         if (inputBid.getTags() == null || inputBid.getTags().isEmpty()) {
-            inputBid.setTags(List.of("nosql", "spring", "auditorium"));
+            inputBid.setTags(new ArrayList<>(List.of("nosql", "spring", "auditorium")));
+        }
+
+        if (inputBid.getName() == null || inputBid.getName().isBlank()) {
+            String classroomName = (inputBid.getClassroom() != null && inputBid.getClassroom().getName() != null)
+                    ? inputBid.getClassroom().getName()
+                    : "Аудитория";
+            inputBid.setName("Бронирование: " + classroomName);
         }
 
         inputBid.setApplicant(applicantEmb);
@@ -83,14 +92,14 @@ public class BookingService {
         User currentUser = getCurrentUser();
         List<Bid> bids = bidRepository.findAll().stream()
                 .filter(b -> b.getApplicant() != null && b.getApplicant().getId().equals(currentUser.getId()))
-                .toList();
+                .collect(Collectors.toCollection(ArrayList::new));
         bids.forEach(bid -> bid.setStatus(getBidStatusFromRedis(bid.getId())));
         return bids;
     }
 
     @Cacheable(value = "all_bookings", key = "'all'")
     public List<Bid> getAllBookings() {
-        List<Bid> bids = bidRepository.findAll();
+        List<Bid> bids = new ArrayList<>(bidRepository.findAll());
         bids.forEach(bid -> bid.setStatus(getBidStatusFromRedis(bid.getId())));
         return bids;
     }

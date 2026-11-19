@@ -1,5 +1,6 @@
 package alfarius.yushinon.nosql1.config;
 
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -30,41 +31,31 @@ public class WebSecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/",
-                                "/madoka_opening.mp3",
-                                "/index.html",
-                                "/user.html",
-                                "/cassandra.html",
-                                "/403.html",
-                                "/js/**",
-                                "/css/**",
-                                "/login",
-                                "/register",
-                                "/api/auth/**",
-                                "/api/services/**",
-                                "/api/services/classrooms",
-                                "/api/services/bookings/my",
-                                "/api/analytics/popular-tags",
-                                "/api/cassandra/**"
-                        ).permitAll()
                         .requestMatchers("/api/logout").authenticated()
-                        .requestMatchers("/admin.html").permitAll() // <- -- -- Я В РОТ ЕБАЛ СВИНЕЙ
                         .requestMatchers(
-                                "/admin.html",
                                 "/admin/**",
                                 "/api/services/bookings/**",
-                                "/api/services/bookings/*/status",
                                 "/api/logs/**"
-                                )
-                        .hasRole("ADMIN")
-                        .anyRequest()
-                        .authenticated()
-
-
+                        ).hasRole("ADMIN")
+                        .requestMatchers(
+                                "/", "/index.html", "/user.html", "/cassandra.html", "/403.html",
+                                "/admin.html",              // страница открыта, данные защищены API
+                                "/madoka_opening.mp3",
+                                "/js/**", "/css/**",
+                                "/login", "/register",
+                                "/api/auth/**",
+                                "/api/services/classrooms",
+                                "/api/analytics/popular-tags",
+                                "/api/cassandra/**"         // + путь вашего write-эндпоинта
+                        ).permitAll()
+                        .requestMatchers("/error").permitAll()
+                        .anyRequest().authenticated()
                 )
-                .exceptionHandling(exception -> exception
-                        .accessDeniedPage("/403.html")
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((req, res, e) ->
+                                res.sendError(HttpServletResponse.SC_UNAUTHORIZED))   // 401 вместо пустого 403
+                        .accessDeniedHandler((req, res, e) ->
+                                res.sendRedirect("/403.html"))
                 )
                 .formLogin(form -> form.disable())
                 .sessionManagement(session ->

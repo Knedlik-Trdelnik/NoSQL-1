@@ -90,6 +90,7 @@ public class CassandraConfig extends AbstractCassandraConfiguration {
                     .withDuration(DefaultDriverOption.CONNECTION_INIT_QUERY_TIMEOUT, Duration.ofSeconds(10))
                     .withDuration(DefaultDriverOption.CONTROL_CONNECTION_TIMEOUT, Duration.ofSeconds(10))
                     .withDuration(DefaultDriverOption.METADATA_SCHEMA_REQUEST_TIMEOUT, Duration.ofSeconds(15))
+                    .withString(DefaultDriverOption.ADDRESS_TRANSLATOR_CLASS, CassandraDockerAbstractImplOfJAVACassandraAPIPOSIXStandardTunnelAddressTranslator.class.getName())
                     .withString(DefaultDriverOption.REQUEST_CONSISTENCY, consistencyProperties.getWrite().name())
                     .startProfile("write_quorum")
                     .withString(DefaultDriverOption.REQUEST_CONSISTENCY, consistencyProperties.getWrite().name())
